@@ -18,6 +18,7 @@ export interface ICreateRoleParams {
   name: string;
   description?: string;
   status?: ObjectActiveStatus;
+  bucketId?: string | null; // 🆕 租户内角色必填，平台预置角色 null
 }
 
 /**
@@ -36,6 +37,7 @@ export interface IRoleQueryParams {
   keyword?: string;
   name?: string;
   status?: ObjectActiveStatus;
+  bucketId?: string; // 🆕 有值则注入 bucket 过滤；undefined=超管跨租户
 }
 
 /**
@@ -100,6 +102,7 @@ export class OpRoleSharedService {
       description,
       status: status || ObjectActiveStatus.ACTIVE,
       createdAdminId: operatorId,
+      bucketId: params.bucketId ?? null,
     });
 
     return await roleRepository.save(role);
@@ -251,6 +254,11 @@ export class OpRoleSharedService {
     if (status) {
       qb.andWhere('role.status = :status', { status });
     }
+    if (queryParams.bucketId) {
+      qb.andWhere('role.bucketId = :bucketId', {
+        bucketId: queryParams.bucketId,
+      });
+    }
 
     return await qb.getMany();
   }
@@ -278,6 +286,11 @@ export class OpRoleSharedService {
     }
     if (status) {
       qb.andWhere('role.status = :status', { status });
+    }
+    if (queryParams.bucketId) {
+      qb.andWhere('role.bucketId = :bucketId', {
+        bucketId: queryParams.bucketId,
+      });
     }
 
     const [rows, total] = await qb

@@ -33,6 +33,9 @@ export class OpRole extends WithStatus(WithTimeTrace(WithId(OpRoleRoot))) {
   @Column({ type: 'text', nullable: true })
   description?: string;
 
+  @Column({ name: 'bucket_id', type: 'bigint', nullable: true })
+  bucketId?: string | null;
+
   @ManyToOne(() => Identity, { createForeignKeyConstraints: false })
   @JoinColumn({ name: 'created_admin_id' })
   creator?: Identity;
