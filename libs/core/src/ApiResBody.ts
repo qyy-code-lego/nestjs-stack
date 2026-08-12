@@ -90,13 +90,7 @@ export class ApiResBodyInterceptor implements NestInterceptor {
         if (data instanceof ApiResBody) {
           data.fullUrl = fullUrl;
           data.method = request.method as
-            | 'GET'
-            | 'POST'
-            | 'PUT'
-            | 'DELETE'
-            | 'PATCH'
-            | 'HEAD'
-            | 'OPTIONS';
+            'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH' | 'HEAD' | 'OPTIONS';
         }
         return data as ApiResBody;
       }),

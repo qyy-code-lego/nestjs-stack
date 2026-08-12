@@ -12,7 +12,10 @@ import {
 import { ApiResBody } from '@qyy-code-lego/nestjs/core/ApiResBody';
 import { ThreadLocal } from '@qyy-code-lego/nestjs/core/nest/als/thread-local';
 import { IdentityRequired } from '../../shared/guards/identity-required/identity-required.decorator';
-import { IPageData, PaginationDTO } from '@qyy-code-lego/nestjs/core/Pagination';
+import {
+  IPageData,
+  PaginationDTO,
+} from '@qyy-code-lego/nestjs/core/Pagination';
 import {
   IOpUserWithAccountVO,
   OpRoleSharedService,
@@ -41,8 +44,7 @@ export class OpRoleController {
 
   private getCurrentIdentityId(): string {
     const identity = this.threadLocal.getStore()?.identity as
-      | Identity
-      | undefined;
+      Identity | undefined;
     return identity?.id || '';
   }
 

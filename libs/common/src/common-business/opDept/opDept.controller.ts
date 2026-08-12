@@ -32,8 +32,7 @@ export class OpDeptController {
 
   private getCurrentIdentityId(): string | undefined {
     const identity = this.threadLocal.getStore()?.identity as
-      | Identity
-      | undefined;
+      Identity | undefined;
     return identity?.id;
   }
 

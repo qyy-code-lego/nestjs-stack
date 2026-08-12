@@ -1,12 +1,7 @@
 import type { LogLevel } from '@nestjs/common';
 
 export type AppLoggerLevel =
-  | 'fatal'
-  | 'error'
-  | 'warn'
-  | 'info'
-  | 'debug'
-  | 'verbose';
+  'fatal' | 'error' | 'warn' | 'info' | 'debug' | 'verbose';
 
 export interface AppLoggerConfig {
   /** 日志最小输出级别，默认 info */

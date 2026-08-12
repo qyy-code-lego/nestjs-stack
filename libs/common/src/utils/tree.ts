@@ -3,8 +3,8 @@
  */
 export function treeify<T extends Record<string, any>>(
   list: T[],
-  idKey: keyof T = 'id' as keyof T,
-  parentKey: keyof T = 'parentId' as keyof T,
+  idKey: keyof T = 'id',
+  parentKey: keyof T = 'parentId',
   childrenKey: string = 'children',
 ): T[] {
   type TreeNode = T & { [K in string]: any };
@@ -30,5 +30,5 @@ export function treeify<T extends Record<string, any>>(
     }
   });
 
-  return tree as T[];
+  return tree;
 }

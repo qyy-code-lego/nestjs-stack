@@ -113,7 +113,7 @@ export class AccountAvatarService {
         accountId: account.id,
         accountSource: AccountSource.ACCOUNT,
         avatarUrl,
-      } as AccountAvatarUpdatedEvent);
+      });
       return record;
     }
 
@@ -132,7 +132,7 @@ export class AccountAvatarService {
       accountId: opAccount!.id,
       accountSource: AccountSource.OP_ACCOUNT,
       avatarUrl,
-    } as AccountAvatarUpdatedEvent);
+    });
 
     return record;
   }

@@ -74,7 +74,4 @@ export type PermissionCheckFunc = (permissionList: string[]) => boolean;
  * 4. 自定义函数: (list) => list.includes('admin')
  */
 export type PermissionRequirement =
-  | string
-  | string[]
-  | PermissionCheckFunc
-  | PermissionRequirement[];
+  string | string[] | PermissionCheckFunc | PermissionRequirement[];

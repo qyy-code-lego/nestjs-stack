@@ -24,9 +24,7 @@ export class BullmqPlaygroundManualWorker implements OnModuleInit {
     this.workerFactory.createRoutedWorker(
       QueueName.CRITICAL, // 演示在 CRITICAL 队列上工作
       {
-        'critical.manual.task': this.handleManualCriticalTask.bind(
-          this,
-        ) as unknown as TaskProcessor,
+        'critical.manual.task': this.handleManualCriticalTask.bind(this),
       },
       {
         concurrency: 2, // 显式设置并发

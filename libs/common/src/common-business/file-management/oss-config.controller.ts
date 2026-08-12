@@ -10,7 +10,10 @@ import {
 } from '@nestjs/common';
 import { ApiResBody } from '@qyy-code-lego/nestjs/core/ApiResBody';
 import { BizError } from '@qyy-code-lego/nestjs/core/BizError';
-import { IPageData, PaginationDTO } from '@qyy-code-lego/nestjs/core/Pagination';
+import {
+  IPageData,
+  PaginationDTO,
+} from '@qyy-code-lego/nestjs/core/Pagination';
 import { ThreadLocal } from '@qyy-code-lego/nestjs/core/nest/als/thread-local';
 import {
   CreateOssConfigDto,
