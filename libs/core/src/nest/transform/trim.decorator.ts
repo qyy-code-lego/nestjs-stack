@@ -1,10 +1,14 @@
 import { Transform, TransformOptions } from 'class-transformer';
 
+function trimOne(value: unknown): unknown {
+  return typeof value === 'string' ? value.trim() : value;
+}
+
 export function Trim(options?: TransformOptions) {
   return Transform(({ value }) => {
-    if (typeof value === 'string') {
-      return value.trim();
+    if (Array.isArray(value)) {
+      return value.map(trimOne);
     }
-    return (value as string)?.trim();
+    return trimOne(value);
   }, options);
 }
