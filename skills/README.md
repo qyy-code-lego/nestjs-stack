@@ -26,6 +26,7 @@ Composite 通过正文中的「相关 skill」段落引用 atomic，AI agent 可
 | `data-scope` | WithScopeStrategy / DataScopeEngine / 行级权限 |
 | `config-service` | ConfigService / AllConfig / registerAs / 内置配置 / 扩展命名空间 |
 | `config-namespaces` | AllConfig / declare global（兼容入口，内容并入 `config-service`） |
+| `runtime-config` | sys_runtime_config / RuntimeConfigService / 运行时业务配置（区别于 env 进程配置） |
 | `cache-wrap` | `CacheService.wrap` / 防击穿 |
 | `redis-kv` | RedisService set/get / 自动序列化 |
 | `response-apiresbody` | ApiResBody / 全局过滤器 |

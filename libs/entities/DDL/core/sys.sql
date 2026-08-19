@@ -155,3 +155,44 @@ CREATE INDEX idx_core_request_log_request_id
   ON core_request_log (request_id);
 CREATE INDEX idx_core_request_log_http_status_created_at
   ON core_request_log (http_status, created_at DESC);
+
+
+-- 4. 运行时业务配置表
+-- 与进程配置（env / yaml / ConfigService<AllConfig>）不对等：进程配置启动期加载、
+-- 同步读取、改动需重启；本表存运行时可随时调整的业务参数，异步读取（带 Redis 缓存），
+-- 后台改完即时生效。业务侧一律通过 RuntimeConfigService 访问。
+CREATE TABLE sys_runtime_config (
+  code VARCHAR(128) PRIMARY KEY,
+  name VARCHAR(255) NOT NULL,
+  group_code VARCHAR(64),
+  remark TEXT,
+  value JSONB NOT NULL DEFAULT '{}'::jsonb,
+  value_type VARCHAR(16) NOT NULL DEFAULT 'object',
+  value_schema JSONB,
+  status VARCHAR(16) NOT NULL DEFAULT 'active',
+  builtin BOOLEAN NOT NULL DEFAULT FALSE,
+  version INTEGER NOT NULL DEFAULT 1,
+  created_by BIGINT,
+  updated_by BIGINT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+COMMENT ON TABLE sys_runtime_config IS '系统运行时业务配置表，后台可随时修改且即时生效';
+COMMENT ON COLUMN sys_runtime_config.code IS '配置识别码（主键），建议点分命名，如 generation.default_params';
+COMMENT ON COLUMN sys_runtime_config.name IS '配置展示名称';
+COMMENT ON COLUMN sys_runtime_config.group_code IS '配置分组，用于后台分类展示（group 是保留字，故列名加 _code）';
+COMMENT ON COLUMN sys_runtime_config.remark IS '备注说明';
+COMMENT ON COLUMN sys_runtime_config.value IS '配置值，任意合法 JSON';
+COMMENT ON COLUMN sys_runtime_config.value_type IS '值类型提示：object/array/string/number/boolean，仅供后台选择编辑器形态';
+COMMENT ON COLUMN sys_runtime_config.value_schema IS '可选 JSON Schema，供后台编辑器做提示与校验';
+COMMENT ON COLUMN sys_runtime_config.status IS '状态：active 生效, disabled 停用（停用后读取方拿到缺省值）';
+COMMENT ON COLUMN sys_runtime_config.builtin IS '是否内置配置项，内置项禁止删除，只能停用';
+COMMENT ON COLUMN sys_runtime_config.version IS '版本号，每次改值自增，用于乐观锁';
+COMMENT ON COLUMN sys_runtime_config.created_by IS '创建人 ID';
+COMMENT ON COLUMN sys_runtime_config.updated_by IS '更新人 ID';
+COMMENT ON COLUMN sys_runtime_config.created_at IS '创建时间';
+COMMENT ON COLUMN sys_runtime_config.updated_at IS '更新时间';
+
+CREATE INDEX idx_sys_runtime_config_group ON sys_runtime_config (group_code);
+CREATE INDEX idx_sys_runtime_config_status ON sys_runtime_config (status);
