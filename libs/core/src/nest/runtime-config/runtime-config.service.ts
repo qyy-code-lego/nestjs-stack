@@ -13,6 +13,18 @@ import { RedisService } from '../redis/redis.service';
 
 const CODE_PATTERN = /^[A-Za-z0-9_.-]+$/;
 
+const CACHE_PREFIX = 'runtime_config:';
+const CACHE_TTL = 300;
+
+/**
+ * 把数据源片段收敛成键安全的形态。
+ *
+ * 冒号是本方案里的结构分隔符，而 IPv6 主机名天生带冒号；不归一化会让键的层级被撑乱。
+ */
+function sanitizeKeySegment(value: string): string {
+  return value.replace(/[^A-Za-z0-9_.-]/g, '_');
+}
+
 export interface RuntimeConfigActor {
   identityId?: string;
 }
@@ -71,8 +83,8 @@ export interface RuntimeConfigDefinition {
 @Injectable()
 export class RuntimeConfigService {
   private readonly logger = new Logger(RuntimeConfigService.name);
-  private readonly CACHE_PREFIX = 'runtime_config:';
-  private readonly CACHE_TTL = 300;
+  /** 数据源标识惰性缓存；连接参数在进程生命周期内不变。 */
+  private datasourceTag?: string;
 
   constructor(
     @InjectRepository(SysRuntimeConfigEntity)
@@ -116,8 +128,7 @@ export class RuntimeConfigService {
     if (unique.length === 0) return {};
 
     const cacheKeys = unique.map((code) => this.getCacheKey(code));
-    const cached =
-      await this.redisService.mget<SysRuntimeConfigEntity>(cacheKeys);
+    const cached = await this.cache().mget<SysRuntimeConfigEntity>(cacheKeys);
 
     const result: Record<string, RuntimeConfigValue> = {};
     const missing: string[] = [];
@@ -146,7 +157,7 @@ export class RuntimeConfigService {
   /** 按 code 取实体，带缓存；不存在返回 null。 */
   async findByCode(code: string): Promise<SysRuntimeConfigEntity | null> {
     if (!code) return null;
-    const cached = await this.redisService.get<SysRuntimeConfigEntity>(
+    const cached = await this.cache().get<SysRuntimeConfigEntity>(
       this.getCacheKey(code),
     );
     if (cached) return cached;
@@ -384,20 +395,67 @@ export class RuntimeConfigService {
     return normalized || null;
   }
 
+  /**
+   * 缓存键，形如 `runtime_config:db.internal_5432_appdb:code:xxx`。
+   *
+   * **不带 app 的 `REDIS_KEY_PREFIX`**：运行时配置是跨 app 共享的同一份事实
+   * （同一张表、同一个 code），按 app 分命名空间缓存会让「改完即时生效」失效——
+   * 改配置的 app 只清得掉自己前缀下的键，其余 app 继续读各自的旧副本直到 TTL 到期。
+   *
+   * 代价是失去了 app 前缀带来的天然隔离，因此键里必须自带**数据源标识**：
+   * 同一个 Redis 被两套指向不同数据库的部署共用时（把 `DATABASE_*` 从 dev 指到
+   * test、或指到本地 postgres），两边的配置缓存不能互相污染。
+   *
+   * 标识只取 `host_port_database`，有两条刻意的取舍：
+   *
+   * - **不含机器名与操作系统**：缓存要和「数据从哪来」对齐，而不是和「谁在读」对齐。
+   *   掺进机器标识会让同一个库、跑在不同机器上的 app 又各自成一个命名空间，
+   *   等于把这里要修的问题原样重造一遍。
+   * - **明文而非 hash**：运维在 `KEYS runtime_config:*` 里要能直接看出哪个键属于哪个库。
+   *   一串十六进制指纹等于什么都没说，排查时还得先反推。至于"暴露库地址"，
+   *   能在这台 Redis 上跑 `KEYS` 的人本来就能读到缓存值本身，隐藏 key 没有意义。
+   *
+   * 不含 username：同一个库换个连接用户读到的还是同一份配置，加进来只会让键更长、
+   * 还平白把凭据信息摊进 key。
+   */
   private getCacheKey(code: string) {
-    return `${this.CACHE_PREFIX}code:${code}`;
+    return `${CACHE_PREFIX}${this.getDatasourceTag()}:code:${code}`;
+  }
+
+  /**
+   * 数据源标识，取自 Repository 自身的连接参数。
+   *
+   * 刻意不读 `ConfigService`：这里要表达的是「这份缓存对应哪个库」，而 Repository
+   * 的连接就是本服务实际读写的那个库，两者不可能漂移。
+   */
+  private getDatasourceTag(): string {
+    if (this.datasourceTag) return this.datasourceTag;
+
+    const options = this.repo.manager.connection.options as {
+      host?: string;
+      port?: number;
+      database?: unknown;
+    };
+    const database =
+      typeof options.database === 'string' ? options.database : '';
+
+    this.datasourceTag = [options.host ?? '', options.port ?? '', database]
+      .map((part) => sanitizeKeySegment(String(part)))
+      .join('_');
+    return this.datasourceTag;
   }
 
   private async writeCache(entity: SysRuntimeConfigEntity) {
-    await this.redisService.set(
-      this.getCacheKey(entity.code),
-      entity,
-      this.CACHE_TTL,
-    );
+    await this.cache().set(this.getCacheKey(entity.code), entity, CACHE_TTL);
   }
 
   private async clearCache(code: string) {
-    await this.redisService.del(this.getCacheKey(code));
+    await this.cache().del(this.getCacheKey(code));
+  }
+
+  /** 运行时配置的缓存一律走无 app 前缀的共享客户端，理由见 {@link getCacheKey}。 */
+  private cache() {
+    return this.redisService.getGlobalHelper();
   }
 }
 
