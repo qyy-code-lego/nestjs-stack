@@ -12,6 +12,8 @@ function parseIntEnv(value: string | undefined, fallback: number): number {
 @Injectable()
 export class RedisService implements OnModuleDestroy {
   private readonly clients = new Map<string, Redis>();
+  /** 不带 keyPrefix 的客户端，供跨 app 共享缓存使用；见 {@link getGlobalHelper}。 */
+  private readonly globalClients = new Map<string, Redis>();
 
   constructor(private readonly configService: ConfigService) {}
 
@@ -41,6 +43,44 @@ export class RedisService implements OnModuleDestroy {
    */
   getHelper(name: keyof RedisConfig = 'default'): RedisHelper {
     const client = this.getClient(name);
+    return new RedisHelper(client);
+  }
+
+  /**
+   * 不带 `REDIS_KEY_PREFIX` 的客户端，用于**跨 app 共享**的缓存。
+   *
+   * `keyPrefix` 设在 ioredis 客户端上（见 {@link createClient}），无法在单次调用里
+   * 绕过，因此共享缓存需要一个独立客户端。
+   *
+   * ## 什么时候该用它
+   *
+   * 判据是**数据的作用域**，不是方便与否：若缓存的数据由多个 app 共享同一份事实
+   * （典型如 `sys_runtime_config`——同一张表、同一个 code、所有 app 必须读到同一个值），
+   * 就必须落在同一个命名空间。否则 A 应用改完只清掉自己前缀下的键，B 应用继续读它
+   * 那份旧的，失效根本不跨 app 生效，只能等 TTL 到期。
+   *
+   * 反过来，会话、字典翻译、业务临时态这些**各 app 私有**的缓存一律继续走
+   * {@link getHelper}：`REDIS_KEY_PREFIX` 的用途正是隔离它们。
+   *
+   * ## 调用方的义务
+   *
+   * 没有了 app 前缀，键名必须自带足以表达**数据来源**的限定词（例如数据源标识），
+   * 否则两套指向不同数据库的部署共用一个 Redis 时会互相污染。
+   */
+  getGlobalHelper(name: keyof RedisConfig = 'default'): RedisHelper {
+    const key = name as string;
+    const existing = this.globalClients.get(key);
+    if (existing) return new RedisHelper(existing);
+
+    const redisConfig = this.configService.get<RedisConfig>('redis');
+    const config =
+      redisConfig && redisConfig[name]
+        ? redisConfig[name]
+        : this.getDefaultConfig();
+
+    // 复用同一份连接参数，只去掉 keyPrefix。
+    const client = this.createClient({ ...config, keyPrefix: undefined });
+    this.globalClients.set(key, client);
     return new RedisHelper(client);
   }
 
@@ -137,6 +177,9 @@ export class RedisService implements OnModuleDestroy {
   }
 
   async onModuleDestroy() {
+    for (const client of this.globalClients.values()) {
+      await client.quit();
+    }
     for (const client of this.clients.values()) {
       await client.quit();
     }
