@@ -691,6 +691,9 @@ export class OpUserSharedService {
         'user.id',
         'user.name',
         'user.phone',
+        // take() 配合 join 时 TypeORM 会生成 distinctAlias 子查询，
+        // 排序列必须在 select 内，否则报 column distinctAlias.user_created_at does not exist
+        'user.createdAt',
         'identity.id',
         'opAccount.id',
         'opAccount.username',
