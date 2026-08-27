@@ -36,8 +36,7 @@ export class UserController {
 
   private getCurrentIdentityId(): string {
     const identity = this.threadLocal.getStore()?.identity as
-      | Identity
-      | undefined;
+      Identity | undefined;
     return identity?.id || '';
   }
 

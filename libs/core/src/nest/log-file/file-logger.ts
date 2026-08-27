@@ -3,12 +3,7 @@ import type { LogLevel } from '@nestjs/common';
 import type { LogFileSink } from './log-file-sink';
 
 type AppLogRecordLevel =
-  | 'log'
-  | 'error'
-  | 'warn'
-  | 'debug'
-  | 'verbose'
-  | 'fatal';
+  'log' | 'error' | 'warn' | 'debug' | 'verbose' | 'fatal';
 
 /**
  * 结构化文件 Logger：继承官方 ConsoleLogger，
@@ -31,32 +26,32 @@ export class FileLogger extends ConsoleLogger {
   }
 
   log(message: unknown, ...rest: unknown[]): void {
-    super.log(message as string, ...(rest as string[]));
+    super.log(message, ...(rest as string[]));
     this.persist('log', message, rest);
   }
 
   error(message: unknown, ...rest: unknown[]): void {
-    super.error(message as string, ...(rest as string[]));
+    super.error(message, ...(rest as string[]));
     this.persist('error', message, rest);
   }
 
   warn(message: unknown, ...rest: unknown[]): void {
-    super.warn(message as string, ...(rest as string[]));
+    super.warn(message, ...(rest as string[]));
     this.persist('warn', message, rest);
   }
 
   debug(message: unknown, ...rest: unknown[]): void {
-    super.debug(message as string, ...(rest as string[]));
+    super.debug(message, ...(rest as string[]));
     this.persist('debug', message, rest);
   }
 
   verbose(message: unknown, ...rest: unknown[]): void {
-    super.verbose(message as string, ...(rest as string[]));
+    super.verbose(message, ...(rest as string[]));
     this.persist('verbose', message, rest);
   }
 
   fatal(message: unknown, ...rest: unknown[]): void {
-    super.fatal(message as string, ...(rest as string[]));
+    super.fatal(message, ...(rest as string[]));
     this.persist('fatal', message, rest);
   }
 

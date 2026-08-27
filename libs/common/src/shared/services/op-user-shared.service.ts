@@ -52,6 +52,8 @@ export interface IOpUserQueryParams {
   deptId?: string;
   roleId?: string;
   status?: ObjectActiveStatus;
+  /** SaaS 租户隔离：按 identity_bucket_r 绑定的 bucketId 过滤；undefined 表示不限制（超管） */
+  bucketId?: string;
 }
 
 @Injectable()
@@ -573,6 +575,13 @@ export class OpUserSharedService {
     if (status) {
       qb.andWhere('user.status = :status', { status });
     }
+    if (queryParams.bucketId) {
+      // SaaS 租户隔离：仅查 identity 已绑定到当前 bucket 的用户
+      qb.andWhere(
+        'identity.id IN (SELECT ibr.identity_id FROM identity_bucket_r ibr WHERE ibr.bucket_id = :__opUserBucketId)',
+        { __opUserBucketId: queryParams.bucketId },
+      );
+    }
 
     const [rows, total] = await qb
       .skip((page - 1) * pageSize)
@@ -670,6 +679,7 @@ export class OpUserSharedService {
     keyword?: string,
     limit: number = 10,
     status?: ObjectActiveStatus,
+    bucketId?: string,
   ): Promise<
     { id: string; name?: string; phone?: string; username?: string }[]
   > {
@@ -698,6 +708,13 @@ export class OpUserSharedService {
 
     if (status) {
       qb.andWhere('user.status = :status', { status });
+    }
+    if (bucketId) {
+      // SaaS 租户隔离：仅查 identity 已绑定到当前 bucket 的用户
+      qb.andWhere(
+        'identity.id IN (SELECT ibr.identity_id FROM identity_bucket_r ibr WHERE ibr.bucket_id = :__opUserListBucketId)',
+        { __opUserListBucketId: bucketId },
+      );
     }
 
     qb.andWhere('user.deletedAt IS NULL');
