@@ -44,7 +44,6 @@ Composite 通过正文中的「相关 skill」段落引用 atomic，AI agent 可
 | `request-logging` | 请求日志 / access log / 持久化 / `@IgnoreRequestLog` / `@CaptureRequestLogBody` |
 | `health-check` | HealthModule / `/health` / readiness / `@HealthIndicator` / 探活 |
 | `log-file` | setupAppLogger / APP_LOG_FILE_* / 滚动落盘 / json·text |
-| `skill-usage-tracking` | skill统计 / skill-usage / sessions / total.mjs |
 
 ### Composite（任务级）
 
