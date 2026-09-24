@@ -45,7 +45,13 @@ name: string;
 
 @Column({ name: 'sort', type: 'int', default: 0 })
 sort: number;
+
+// 关联 ID（雪花 ID）一律 bigint，TS 类型保持 string（pg 驱动返回字符串）
+@Column({ name: 'project_id', type: 'bigint' })
+projectId: string;
 ```
+
+> 主键 `id` 与所有关联 ID（`*_id`、`created_by`、`updated_by`）在数据库中均为 `BIGINT`，**不要用 `varchar` 存 ID**。DDL 规则见 `write-ddl`。
 
 ## 4. 推荐组合
 
@@ -65,12 +71,7 @@ export class KnowledgeBase extends WithAuditor(
   @Column({ name: 'name', type: 'varchar', length: 128 })
   name: string;
 
-  @Column({
-    name: 'cover_file_id',
-    type: 'varchar',
-    length: 64,
-    nullable: true,
-  })
+  @Column({ name: 'cover_file_id', type: 'bigint', nullable: true })
   coverFileId?: string | null;
 }
 ```
@@ -91,7 +92,7 @@ export enum KnowledgeBaseSourceType {
 sourceType: KnowledgeBaseSourceType;
 ```
 
-如果该枚举需要面向前端展示，通常还应同步维护 `public/dict.json` 中的字典项。详见 `dict-json`。
+如果该枚举需要面向前端展示，通常还应同步维护字典分片 `public/dict/<key>.json`。详见 `dict-json`。
 
 ## 6. 不要做
 

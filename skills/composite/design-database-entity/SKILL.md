@@ -31,12 +31,13 @@ when_to_use: 关键词 — entity, database, schema, typeorm, design, ObjectActi
 - 业务编码列保留语义后缀：`xxxCode`、`xxxType`、`xxxStatus`
 - 软删用 TypeORM `@DeleteDateColumn() deletedAt: Date`，查询不要手拼 `deletedAt IS NULL`
 - **每个 `@Column` 必须显式写 `type`**，禁止裸 `@Column()`
+- 关联 ID（`xxxId`）一律 `type: 'bigint'`，TS 类型 `string`；与 DDL 的 `BIGINT` 一致，不要用 `varchar` 存 ID
 
 ## 4. 业务枚举 / 状态字段
 
 - `status` 是普通启停态时，优先复用 `WithStatus` / `ObjectActiveStatus`
 - 自定义业务枚举时，必须新建 `enum` 对象，Entity / DTO / Service / VO 统一使用该枚举
-- 面向前端展示的业务枚举，通常还要同步维护 `public/dict.json`
+- 面向前端展示的业务枚举，通常还要同步维护字典分片 `public/dict/<key>.json`
 - 不要在 Entity 中把状态字段定义成宽泛 `string`
 
 ## 5. 索引建议
@@ -73,7 +74,7 @@ export class CustomSubject extends WithAuditor(
   @Column({ name: 'name', type: 'varchar', length: 64 })
   name: string;
 
-  @Column({ name: 'hospital_id', type: 'varchar', length: 64 })
+  @Column({ name: 'hospital_id', type: 'bigint' })
   hospitalId: string;
 
   @Column({ name: 'subject_type', type: 'varchar', length: 16 })
@@ -90,6 +91,6 @@ export class CustomSubject extends WithAuditor(
 - `entity-base` — extendable 与固定写法
 - `dto-validation` — DTO 枚举校验与 Entity 对齐
 - `dict-json` — 业务枚举与字典同步
-- `write-ddl` — SQL 字段定义必须与 Entity 一致
+- `write-ddl` — PostgreSQL DDL 规范（一表一文件、ID BIGINT、COMMENT ON），SQL 字段定义必须与 Entity 一致
 - `data-scope`
 - `service-paradigm` — 查询基于实体关系
