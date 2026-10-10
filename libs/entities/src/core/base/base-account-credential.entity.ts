@@ -3,7 +3,7 @@ import { ObjectActiveStatus, WithId, WithTimeTrace } from './extendable';
 
 class BaseAccountCredentialRoot {}
 
-@Index('idx_credential_identifier', ['identifier'])
+@Index(['identifier'])
 export abstract class BaseAccountCredential extends WithTimeTrace(
   WithId(BaseAccountCredentialRoot),
 ) {

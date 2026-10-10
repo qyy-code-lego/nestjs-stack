@@ -51,7 +51,11 @@ export class CatchEverythingFilter implements ExceptionFilter {
       if (exception instanceof ValidationException) {
         caught = true;
         httpStatus = HttpStatus.BAD_REQUEST;
-        responseBody = ApiResBody.ofWith(400, exception.message);
+        // 将逐字段校验信息（来自 class-validator 的 message）拼接到响应 message，
+        // 避免前端只看到「参数校验失败」而看不到具体字段提示（R6B28-04）
+        const fieldErrors = exception.validationErrors?.errors || [];
+        const msg = fieldErrors.length ? fieldErrors.join('；') : exception.message;
+        responseBody = ApiResBody.ofWith(400, msg);
         responseBody.setDetails(exception.validationErrors);
         break;
       }
@@ -101,20 +105,36 @@ export class CatchEverythingFilter implements ExceptionFilter {
         }
         break;
       }
+
+      // 数据库异常（TypeORM QueryFailedError）：invalid input syntax for type uuid 等客户端格式错误 → 400，
+      // 其余 DB 异常 → 500 通用文案（不下发堆栈，R2A-56/R2D-05/R4A-02 等非法 id 不再泄露/500）
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const anyErr = exception as any;
+      if (anyErr && typeof anyErr === 'object' && anyErr.name === 'QueryFailedError') {
+        const dbMsg: string = String(anyErr.message || '');
+        caught = true;
+        if (/invalid input syntax for type uuid|invalid uuid|invalid input syntax/i.test(dbMsg)) {
+          httpStatus = HttpStatus.BAD_REQUEST;
+          responseBody = ApiResBody.ofWith(400, '参数格式不正确');
+        } else {
+          httpStatus = HttpStatus.INTERNAL_SERVER_ERROR;
+          responseBody = ApiResBody.ofWith(500, '服务出错，请稍后重试');
+        }
+      }
       break;
     }
 
     if (!caught) {
-      // 记录未捕获的错误堆栈信息
+      // 记录未捕获的错误堆栈信息（仅服务端日志，不下发客户端，避免泄露 DB/堆栈）
       this.logger.error(
         `Unhandled exception: ${(exception as Error).message || 'Unknown error'}`,
         (exception as Error).stack,
       );
 
-      responseBody.setDetails({
-        name: (exception as Error).name,
-        stack: (exception as Error).stack,
-      });
+      // 面向客户端只给通用文案，不带 name/stack（脱敏，防 DEFECT-P2-01 类信息泄露）
+      if (!responseBody.message || responseBody.message === '请求完成') {
+        responseBody = ApiResBody.ofWith(httpStatus, '服务出错，请稍后重试');
+      }
     }
 
     httpAdapter.reply(ctx.getResponse(), responseBody, httpStatus);

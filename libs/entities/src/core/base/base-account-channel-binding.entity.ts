@@ -3,7 +3,7 @@ import { WithId, WithTimeTrace } from './extendable';
 
 class BaseAccountChannelBindingRoot {}
 
-@Index('uq_channel_external_user', ['channel', 'externalUserId'], {
+@Index(['channel', 'externalUserId'], {
   unique: true,
 })
 export abstract class BaseAccountChannelBinding extends WithTimeTrace(

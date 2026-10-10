@@ -88,6 +88,7 @@ export class RedisService implements OnModuleDestroy {
     const options: RedisOptions = {
       host: config.host,
       port: config.port,
+      username: config.username,
       password: config.password,
       db: config.db,
       lazyConnect: true,
@@ -120,6 +121,7 @@ export class RedisService implements OnModuleDestroy {
     return {
       host: 'localhost',
       port: 6379,
+      username: undefined,
       password: undefined,
       db: 0,
     };

@@ -3,9 +3,9 @@ import { WithId } from './extendable';
 
 class BaseLoginAuditRoot {}
 
-@Index('idx_audit_success', ['success'])
-@Index('idx_audit_account_created', ['accountId', 'createdAt'])
-@Index('idx_audit_identity_created', ['identityId', 'createdAt'])
+@Index(['success'])
+@Index(['accountId', 'createdAt'])
+@Index(['identityId', 'createdAt'])
 export abstract class BaseLoginAudit extends WithId(BaseLoginAuditRoot) {
   @Column({ name: 'account_id' })
   accountId: string;
