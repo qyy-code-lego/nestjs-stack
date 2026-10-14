@@ -106,16 +106,22 @@ export class CatchEverythingFilter implements ExceptionFilter {
         break;
       }
 
-      // 数据库异常（TypeORM QueryFailedError）：invalid input syntax for type uuid 等客户端格式错误 → 400，
-      // 其余 DB 异常 → 500 通用文案（不下发堆栈，R2A-56/R2D-05/R4A-02 等非法 id 不再泄露/500）
+      // 数据库异常（TypeORM QueryFailedError）：
+      // - invalid input syntax for type uuid 等客户端格式错误 → 400
+      // - 唯一约束冲突（PostgreSQL 23505 duplicate key）→ 409「该信息已存在，请修改后重试」(rG6721 唯一性分类)
+      // - 其余 DB 异常 → 500 通用文案（不下发堆栈，R2A-56/R2D-05/R4A-02 等非法 id 不再泄露/500）
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const anyErr = exception as any;
       if (anyErr && typeof anyErr === 'object' && anyErr.name === 'QueryFailedError') {
         const dbMsg: string = String(anyErr.message || '');
+        const dbCode: string = String(anyErr.code ?? '');
         caught = true;
         if (/invalid input syntax for type uuid|invalid uuid|invalid input syntax/i.test(dbMsg)) {
           httpStatus = HttpStatus.BAD_REQUEST;
           responseBody = ApiResBody.ofWith(400, '参数格式不正确');
+        } else if (dbCode === '23505' || /duplicate key|unique constraint/i.test(dbMsg)) {
+          httpStatus = HttpStatus.CONFLICT;
+          responseBody = ApiResBody.ofWith(409, '该信息已存在，请修改后重试');
         } else {
           httpStatus = HttpStatus.INTERNAL_SERVER_ERROR;
           responseBody = ApiResBody.ofWith(500, '服务出错，请稍后重试');
