@@ -12,6 +12,7 @@ import {
 import { ApiResBody } from '@qyy-code-lego/nestjs/core/ApiResBody';
 import { ThreadLocal } from '@qyy-code-lego/nestjs/core/nest/als/thread-local';
 import { IdentityRequired } from '../../shared/guards/identity-required/identity-required.decorator';
+import { PermissionRequired } from '../../shared/guards/permission/permission-required.decorator';
 import {
   IPageData,
   PaginationDTO,
@@ -57,6 +58,7 @@ export class OpRoleController {
       : ObjectActiveStatus.DISABLED;
   }
 
+  @PermissionRequired('system:role:view')  // DEFECT-R7B-A22-1-01
   @Get('list')
   @HttpCode(HttpStatus.OK)
   async listRoles(
@@ -68,6 +70,7 @@ export class OpRoleController {
     return ApiResBody.of(roles);
   }
 
+  @PermissionRequired('system:role:view')  // DEFECT-R7B-A22-1-01
   @Get('page')
   @HttpCode(HttpStatus.OK)
   async findRolePage(
@@ -84,6 +87,7 @@ export class OpRoleController {
     return ApiResBody.of(result);
   }
 
+  @PermissionRequired('system:role:view')  // DEFECT-R7B-A22-1-01
   @Get('detail')
   @HttpCode(HttpStatus.OK)
   async getDetail(@Query('id') id: string): Promise<ApiResBody<OpRole>> {
@@ -91,6 +95,7 @@ export class OpRoleController {
     return ApiResBody.of(role);
   }
 
+  @PermissionRequired('system:role:edit')  // DEFECT-R7B-A22-1-01
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async createRole(
@@ -108,6 +113,7 @@ export class OpRoleController {
     return ApiResBody.of(role);
   }
 
+  @PermissionRequired('system:role:edit')  // DEFECT-R7B-A22-1-01
   @Patch()
   @HttpCode(HttpStatus.OK)
   async updateRole(
@@ -132,6 +138,7 @@ export class OpRoleController {
     return ApiResBody.of(role);
   }
 
+  @PermissionRequired('system:role:edit')  // DEFECT-R7B-A22-1-01
   @Patch('enable')
   @HttpCode(HttpStatus.OK)
   async updateEnable(
@@ -145,6 +152,7 @@ export class OpRoleController {
     return ApiResBody.of(role);
   }
 
+  @PermissionRequired('system:role:edit')  // DEFECT-R7B-A22-1-01
   @Delete()
   @HttpCode(HttpStatus.OK)
   async deleteRole(@Query('id') id: string): Promise<ApiResBody<null>> {
@@ -152,6 +160,7 @@ export class OpRoleController {
     return ApiResBody.of(null);
   }
 
+  @PermissionRequired('system:role:view')  // DEFECT-R7B-A22-1-01
   @Get('bound-users')
   @HttpCode(HttpStatus.OK)
   async getBoundUsers(
@@ -161,6 +170,7 @@ export class OpRoleController {
     return ApiResBody.of(users);
   }
 
+  @PermissionRequired('system:role:edit')  // DEFECT-R7B-A22-1-01
   @Post('permissions')
   @HttpCode(HttpStatus.OK)
   async setPermissions(
@@ -171,6 +181,7 @@ export class OpRoleController {
     return ApiResBody.of(null);
   }
 
+  @PermissionRequired('system:role:view')  // DEFECT-R7B-A22-1-01
   @Get('permissions')
   @HttpCode(HttpStatus.OK)
   async getPermissions(
@@ -180,6 +191,7 @@ export class OpRoleController {
     return ApiResBody.of(permissions);
   }
 
+  @PermissionRequired('system:role:edit')  // DEFECT-R7B-A22-1-01
   @Post('bind-users')
   @HttpCode(HttpStatus.OK)
   async bindUsers(
@@ -191,6 +203,7 @@ export class OpRoleController {
     return ApiResBody.of(null);
   }
 
+  @PermissionRequired('system:role:edit')  // DEFECT-R7B-A22-1-01
   @Post('unbind-users')
   @HttpCode(HttpStatus.OK)
   async unbindUsers(

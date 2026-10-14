@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { ApiResBody } from '@qyy-code-lego/nestjs/core/ApiResBody';
 import { IdentityRequired } from '../../shared/guards/identity-required/identity-required.decorator';
+import { PermissionRequired } from '../../shared/guards/permission/permission-required.decorator';
 import { BizError } from '@qyy-code-lego/nestjs/core/BizError';
 import { ThreadLocal } from '@qyy-code-lego/nestjs/core/nest/als/thread-local';
 import {
@@ -50,6 +51,7 @@ export class OpUserController {
     return identity?.id || '';
   }
 
+  @PermissionRequired('system:user:create') // DEFECT-R7B-A22-1-01
   @Post()
   @HttpCode(HttpStatus.CREATED)
   async createUser(@Body() dto: CreateUserDTO): Promise<ApiResBody<OpUser>> {
@@ -58,6 +60,7 @@ export class OpUserController {
     return ApiResBody.of(user);
   }
 
+  @PermissionRequired('system:user:view') // DEFECT-R7B-A22-1-01
   @Patch()
   @HttpCode(HttpStatus.OK)
   async updateUser(
@@ -75,6 +78,7 @@ export class OpUserController {
     return ApiResBody.of(user);
   }
 
+  @PermissionRequired('system:user:view') // DEFECT-R7B-A22-1-01
   @Delete()
   @HttpCode(HttpStatus.OK)
   async deleteUser(@Query('id') id: string): Promise<ApiResBody<null>> {
@@ -83,6 +87,7 @@ export class OpUserController {
     return ApiResBody.of(null);
   }
 
+  @PermissionRequired('system:user:view') // DEFECT-R7B-A22-1-01
   @Get('page')
   @HttpCode(HttpStatus.OK)
   async findUserPage(
@@ -97,6 +102,7 @@ export class OpUserController {
     return ApiResBody.of(result);
   }
 
+  @PermissionRequired('system:user:view') // DEFECT-R7B-A22-1-01
   @Get('detail')
   @HttpCode(HttpStatus.OK)
   async getUserDetail(@Query('id') id: string): Promise<ApiResBody<OpUser>> {
@@ -104,6 +110,7 @@ export class OpUserController {
     return ApiResBody.of(user);
   }
 
+  @PermissionRequired('system:user:view') // DEFECT-R7B-A22-1-01
   @Post('roles')
   @HttpCode(HttpStatus.OK)
   async setUserRoles(
@@ -118,6 +125,7 @@ export class OpUserController {
     return ApiResBody.of(null);
   }
 
+  @PermissionRequired('system:user:view') // DEFECT-R7B-A22-1-01
   @Get('roles')
   @HttpCode(HttpStatus.OK)
   async getUserRoles(
@@ -127,6 +135,7 @@ export class OpUserController {
     return ApiResBody.of(roles);
   }
 
+  @PermissionRequired('system:user:reset-password') // DEFECT-R7B-A22-1-01
   @Post('reset-password')
   @HttpCode(HttpStatus.OK)
   async resetPassword(
