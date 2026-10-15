@@ -207,6 +207,30 @@ export class FileService {
     });
   }
 
+  /**
+   * 服务端决定对象键（OssUploadPolicy）时的续传查找：同一上传人、同一内容摘要与大小、
+   * 同一用途（`meta.uploadPurpose`）的最近一个未完成 OSS 上传任务。
+   */
+  async findPendingOssUpload(input: {
+    createdBy: string;
+    hash: string;
+    size: string;
+    purpose: string;
+  }) {
+    return await this.fileRepo
+      .createQueryBuilder('file')
+      .where('file.storageType = :storageType', { storageType: 'oss' })
+      .andWhere('file.completed = false')
+      .andWhere('file.createdBy = :createdBy', { createdBy: input.createdBy })
+      .andWhere('file.hash = :hash', { hash: input.hash })
+      .andWhere('file.size = :size', { size: input.size })
+      .andWhere(`file.meta ->> 'uploadPurpose' = :purpose`, {
+        purpose: input.purpose,
+      })
+      .orderBy('file.createdAt', 'DESC')
+      .getOne();
+  }
+
   async findLocalByObject(object: string, options?: { withDeleted?: boolean }) {
     return await this.fileRepo.findOne({
       where: { object, storageType: 'local' },

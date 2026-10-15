@@ -31,6 +31,11 @@ export interface S3StorageDeleteOptions extends S3StorageBaseOptions {
   key: string;
 }
 
+export interface S3StorageSetAclOptions extends S3StorageBaseOptions {
+  key: string;
+  acl: ObjectCannedACL;
+}
+
 export interface S3StorageListOptions extends S3StorageBaseOptions {
   prefix?: string;
   delimiter?: string;

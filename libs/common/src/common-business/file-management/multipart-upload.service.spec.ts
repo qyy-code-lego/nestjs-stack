@@ -3,6 +3,7 @@ import { S3StorageService } from '@qyy-code-lego/nestjs/core/nest/s3-storage';
 import { IdentityType } from '@qyy-code-lego/nestjs/entities/core/identity/constants';
 import { SysFileEntity } from '@qyy-code-lego/nestjs/entities/core/sys/sys-file.entity';
 import { MultipartUploadService } from './multipart-upload.service';
+import { OssUploadPolicy } from './oss-upload-policy';
 
 describe('MultipartUploadService', () => {
   const actor = {
@@ -11,6 +12,7 @@ describe('MultipartUploadService', () => {
   };
   let fileService: {
     findOssByObject: jest.Mock;
+    findPendingOssUpload: jest.Mock;
     findById: jest.Mock;
     createOssUploadTask: jest.Mock;
     save: jest.Mock;
@@ -24,12 +26,14 @@ describe('MultipartUploadService', () => {
     completeMultipartUpload: jest.Mock;
     getObjectMetadata: jest.Mock;
     abortMultipartUpload: jest.Mock;
+    setObjectAcl?: jest.Mock;
   };
   let service: MultipartUploadService;
 
   beforeEach(() => {
     fileService = {
       findOssByObject: jest.fn(),
+      findPendingOssUpload: jest.fn(),
       findById: jest.fn(),
       createOssUploadTask: jest.fn(),
       save: jest.fn((file: SysFileEntity) => Promise.resolve(file)),
@@ -91,6 +95,132 @@ describe('MultipartUploadService', () => {
       ),
     ).resolves.toEqual({ file, completed: true });
     expect(storageService.generatePresignedPutUrl).not.toHaveBeenCalled();
+  });
+
+  describe('注册了上传策略', () => {
+    const policy = {
+      resolve: jest.fn(() =>
+        Promise.resolve({
+          ossConfigCode: 'policy-oss',
+          key: 'app/upload/202610/uuid.png',
+          acl: 'public-read' as const,
+        }),
+      ),
+    };
+    let policyService: MultipartUploadService;
+    const directInput = {
+      purpose: 'file',
+      filename: 'a.png',
+      hash: 'md5:hash',
+      size: '10',
+      contentMd5: '1B2M2Y8AsgTpgAmY7PhCfg==',
+      contentType: 'image/png',
+    };
+
+    beforeEach(() => {
+      policy.resolve.mockClear();
+      policyService = new MultipartUploadService(
+        fileService as unknown as FileService,
+        storageService as unknown as S3StorageService,
+        policy as unknown as OssUploadPolicy,
+      );
+    });
+
+    it('拒绝客户端指定 ossConfigCode / key', async () => {
+      await expect(
+        policyService.prepareDirectUpload(
+          { ...directInput, ossConfigCode: 'oss', key: 'x/y.png' },
+          actor,
+        ),
+      ).rejects.toThrow('OSS 配置与对象键由服务端决定');
+      expect(policy.resolve).not.toHaveBeenCalled();
+    });
+
+    it('按策略决定配置、对象键与 ACL，并记录用途', async () => {
+      fileService.findPendingOssUpload.mockResolvedValue(null);
+      fileService.createOssUploadTask.mockImplementation(
+        (dto: Partial<SysFileEntity>) =>
+          Promise.resolve(createFile({ ...dto, id: 'file-new' })),
+      );
+      storageService.generatePresignedPutUrl.mockResolvedValue({ url: 'u' });
+
+      await policyService.prepareDirectUpload(directInput, actor);
+
+      expect(policy.resolve).toHaveBeenCalledWith(
+        expect.objectContaining({ purpose: 'file', size: 10, actor }),
+      );
+      expect(fileService.createOssUploadTask).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ossConfigCode: 'policy-oss',
+          object: 'app/upload/202610/uuid.png',
+          meta: { uploadPurpose: 'file', uploadAcl: 'public-read' },
+        }),
+        actor.identityType,
+        actor.identityId,
+      );
+      expect(storageService.generatePresignedPutUrl).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ossConfigCode: 'policy-oss',
+          key: 'app/upload/202610/uuid.png',
+          acl: undefined,
+        }),
+      );
+    });
+
+    it('直传完成后按任务记录的 ACL 设置对象权限', async () => {
+      const file = createFile({
+        size: '10',
+        meta: { uploadPurpose: 'file', uploadAcl: 'public-read' },
+      });
+      fileService.findById.mockResolvedValue(file);
+      storageService.getObjectMetadata.mockResolvedValue({
+        size: 10,
+        contentType: 'image/png',
+        fullUrl: 'https://x/app.png',
+      });
+      storageService.setObjectAcl = jest.fn();
+
+      await policyService.recordCompletedObject({ fileId: file.id }, actor);
+
+      expect(storageService.setObjectAcl).toHaveBeenCalledWith({
+        ossConfigCode: 'oss',
+        key: file.object,
+        acl: 'public-read',
+      });
+    });
+
+    it('续传复用同一上传人、内容与用途的未完成任务', async () => {
+      const pending = createFile({
+        id: 'file-pending',
+        object: 'app/upload/202609/old.png',
+        ossConfigCode: 'old-oss',
+        hash: 'md5:hash',
+        size: '10',
+        completed: false,
+      });
+      fileService.findPendingOssUpload.mockResolvedValue(pending);
+      storageService.generatePresignedPutUrl.mockResolvedValue({ url: 'u' });
+
+      const result = await policyService.prepareDirectUpload(
+        directInput,
+        actor,
+      );
+
+      expect(fileService.findPendingOssUpload).toHaveBeenCalledWith({
+        createdBy: actor.identityId,
+        hash: 'md5:hash',
+        size: '10',
+        purpose: 'file',
+      });
+      expect(fileService.createOssUploadTask).not.toHaveBeenCalled();
+      expect(storageService.generatePresignedPutUrl).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ossConfigCode: 'old-oss',
+          key: 'app/upload/202609/old.png',
+        }),
+      );
+      expect(result.file.id).toBe('file-pending');
+    });
   });
 
   it('分片签名只使用 fileId 对应的服务端任务信息', async () => {

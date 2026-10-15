@@ -7,6 +7,7 @@ import {
   HeadObjectCommand,
   ListObjectsV2Command,
   ListPartsCommand,
+  PutObjectAclCommand,
   PutObjectCommand,
   S3Client,
   UploadPartCommand,
@@ -23,6 +24,7 @@ import {
   S3StorageAbortMultipartOptions,
   S3StorageCompleteMultipartOptions,
   S3StorageDeleteOptions,
+  S3StorageSetAclOptions,
   S3StorageDownloadOptions,
   S3StorageHeadOptions,
   S3StorageListOptions,
@@ -764,5 +766,23 @@ export class S3StorageService {
       deleteMarker: output.DeleteMarker,
       versionId: output.VersionId,
     };
+  }
+
+  /**
+   * 设置对象级 ACL。直传签名中的 ACL 会被提升为 URL 查询参数，部分 S3 兼容服务（如阿里云 OSS）
+   * 不识别，因此直传完成后由服务端显式设置。
+   */
+  async setObjectAcl(options: S3StorageSetAclOptions) {
+    const { client, bucket } = await this.getClientContext(
+      options.ossConfigCode,
+    );
+    await client.send(
+      new PutObjectAclCommand({
+        Bucket: bucket,
+        Key: options.key,
+        ACL: options.acl,
+      }),
+    );
+    return { bucket, key: options.key, acl: options.acl };
   }
 }

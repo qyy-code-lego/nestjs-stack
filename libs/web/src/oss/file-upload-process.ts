@@ -141,6 +141,7 @@ export class FileUploadProcess {
         this.withController((signal) =>
           this.options.adapter.initialize({
             file: this.options.file,
+            purpose: this.options.purpose,
             key: this.options.key,
             hash,
             ossConfigCode: this.options.ossConfigCode,

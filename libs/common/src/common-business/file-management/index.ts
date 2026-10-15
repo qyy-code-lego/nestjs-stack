@@ -2,6 +2,7 @@ export * from './business-file.controller';
 export * from './account-avatar.service';
 export * from './file.controller';
 export * from './multipart-upload.service';
+export * from './oss-upload-policy';
 export * from './local-multipart-upload.service';
 export * from './oss-config.controller';
 export * from './oss-config.vo-transform';

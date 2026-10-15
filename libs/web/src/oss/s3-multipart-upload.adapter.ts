@@ -15,7 +15,7 @@ const MIN_S3_CHUNK_SIZE = 5 * 1024 * 1024;
 const MAX_S3_PARTS = 10_000;
 
 interface MultipartInitResponse {
-  upload: { uploadId: string; key: string };
+  upload: { uploadId: string; key: string; ossConfigCode?: string };
   file: FileRecord & { uploadId: string };
   chunkSize: number;
   parts: UploadedPart[];
@@ -46,6 +46,7 @@ export class S3MultipartUploadAdapter implements MultipartUploadAdapter {
     const result = await this.options.client.post<MultipartInitResponse>(
       this.options.client.endpoints.multipartInit,
       {
+        purpose: input.purpose,
         ossConfigCode: input.ossConfigCode,
         key: input.key,
         hash: input.hash,
@@ -71,7 +72,10 @@ export class S3MultipartUploadAdapter implements MultipartUploadAdapter {
       fileId: result.file.id,
       uploadId: result.upload.uploadId,
       key: result.upload.key,
-      ossConfigCode: input.ossConfigCode,
+      ossConfigCode:
+        result.upload.ossConfigCode ??
+        result.file.ossConfigCode ??
+        input.ossConfigCode,
       chunkSize: result.chunkSize,
       uploadedParts: result.parts,
     };
