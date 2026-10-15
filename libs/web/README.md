@@ -4,6 +4,11 @@
 `AbortController` 等 Web 标准。NestJS 后端不会引用本库，前端可通过
 `@qyy-code-lego/nestjs/web/oss` 直接引用源码并交给自身构建器打包。
 
+> **存储位置由服务端决定。** 服务端注册 `OssUploadPolicy` 后，前端只传 `purpose`，
+> 不要在前端配置或拼接 `ossConfigCode`、桶前缀、对象键。约定见
+> [docs/development/oss-upload.md](../../docs/development/oss-upload.md)。下文示例均为策略模式；
+> `key` / `ossConfigCode` 参数仅为未注册策略的旧工程保留（已废弃）。
+
 ## 普通直传与访问链接
 
 ```typescript
@@ -15,11 +20,7 @@ const sdk = new OssWebSdk({
   multipartThreshold: 20 * 1024 * 1024,
 });
 
-const record = await sdk.upload({
-  file,
-  key: `attachments/${crypto.randomUUID()}-${file.name}`,
-  ossConfigCode: 'aliyun_prod',
-});
+const record = await sdk.upload({ file, purpose: 'attachment' });
 
 const accessUrl = await sdk.getAccessUrl({
   fileId: record.id,
@@ -30,8 +31,8 @@ const accessUrl = await sdk.getAccessUrl({
 `upload` 会先创建未完成的 `sys_file` 上传任务，再取得绑定文件大小和
 `Content-MD5` 的 PUT 地址。直传完成后 SDK 自动调用 `/files/oss/callback`，
 后端通过 `HeadObject` 核对对象大小，并以 OSS 返回的 MIME 和访问地址完成
-建档。相同 OSS 配置下的活动 `key` 唯一；新文件使用已有 `key` 会返回 409，
-只有原上传任务重试或续传才能复用。
+建档。对象键由服务端策略生成；同一上传人对同一内容（hash + 大小 + 用途）的
+未完成任务会被复用以续传。
 
 ## 自动选择直传或分片
 
@@ -42,8 +43,7 @@ const accessUrl = await sdk.getAccessUrl({
 ```typescript
 const process = sdk.createUploadProcess({
   file,
-  key: `videos/${crypto.randomUUID()}-${file.name}`,
-  ossConfigCode: 'aliyun_prod',
+  purpose: 'video',
   multipartThreshold: 50 * 1024 * 1024,
   concurrency: 4,
   retries: 2,
@@ -75,14 +75,13 @@ import {
 
 const process = new FileUploadProcess({
   file,
-  key,
-  ossConfigCode,
+  purpose: 'video',
   adapter: new S3MultipartUploadAdapter({ client: sdk.client }),
 });
 ```
 
 `start()` 返回的 Promise 会持续到上传最终完成；暂停不会让它提前结束。
-重新调用 init 时，后端依据 `ossConfigCode + key + hash` 返回已上传分片。
+重新调用 init 时，后端依据“上传人 + hash + 大小 + 用途”找到未完成任务并返回已上传分片。
 SDK 默认 hash 会组合文件元信息及首部、中部、尾部内容样本，避免用户误选
 同名同大小文件后拼接旧分片；要求全文件强一致或跨重命名续传时，可注入
 增量 MD5/SHA 实现作为 `hashProvider`。

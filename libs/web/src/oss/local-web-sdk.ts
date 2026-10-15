@@ -32,8 +32,11 @@ export class LocalWebSdk {
     this.multipartThreshold = options.multipartThreshold;
   }
 
+  /** 本地存储的对象路径由调用方指定，`key` 必填。 */
   createUploadProcess(
-    options: Omit<FileUploadProcessOptions, 'adapter' | 'ossConfigCode'>,
+    options: Omit<FileUploadProcessOptions, 'adapter' | 'ossConfigCode'> & {
+      key: string;
+    },
   ): FileUploadProcess {
     const hashProvider = options.hashProvider ?? createFileContentFingerprint;
     const directUpload =

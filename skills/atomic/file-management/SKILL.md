@@ -1,13 +1,25 @@
 ---
 name: file-management
-description: 文件上传用 LocalUploadService.saveLocalFile，自动落盘并写 sys_file 元数据；接口返回时用 FileService.translateIds 批量把文件 ID 翻译为带 fullUrl 的实体（带 Redis 缓存）。
+description: 文件存储约定——OSS 文件由浏览器经 Web SDK 直传、服务端 OssUploadPolicy 决定配置 / 对象键 / ACL，前端只传 purpose；本地存储用 LocalUploadService；接口返回时用 FileService.translateIds 翻译文件 ID。
 type: atomic
 tags: [file, upload]
-when_to_use: 关键词 — file, upload, LocalUploadService, FileService, translateIds, sys_file
+when_to_use: 关键词 — file, upload, oss, 直传, OssUploadPolicy, OssWebSdk, ossConfigCode, LocalUploadService, FileService, translateIds, sys_file
 ---
 
 
 # 文件上传与管理
+
+## OSS 直传（新工程默认）
+
+**存储位置只由服务端决定**：实现并注册 `OssUploadPolicy`（`@qyy-code-lego/nestjs/common`），按 `purpose` 返回 `{ ossConfigCode, key, acl?, meta? }`；前端 `OssWebSdk.upload({ file, purpose })` 直传，业务接口只收 `fileId`。禁止前端配置 / 拼接 `ossConfigCode`、桶前缀、对象键（`VITE_OSS_CONFIG_CODE` 一类做法已废弃）。OSS 配置写 `sys_oss_config`，存储选择放运行时配置。完整约定见 `docs/development/oss-upload.md`。
+
+| 服务 | 职责 |
+| - | - |
+| `OssUploadPolicy` | 工程实现：用途校验、配置 / 对象键 / ACL |
+| `MultipartUploadService` | 直传签名、分片、回调核对、续传（按上传人 + hash + 大小 + 用途） |
+| `S3StorageService` | 服务端读写对象（`uploadObject` / `downloadObject` / `getObjectMetadata`） |
+
+## 本地存储
 
 ## 核心服务
 
