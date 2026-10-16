@@ -449,6 +449,11 @@ export class RuntimeConfigService {
     await this.cache().set(this.getCacheKey(entity.code), entity, CACHE_TTL);
   }
 
+  /** 专用配置服务在外部事务提交后精确失效，避免复制数据源缓存键规则。 */
+  async invalidate(code: string): Promise<void> {
+    await this.clearCache(code);
+  }
+
   private async clearCache(code: string) {
     await this.cache().del(this.getCacheKey(code));
   }

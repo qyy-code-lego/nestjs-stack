@@ -9,3 +9,5 @@ export * from './oss-config.vo-transform';
 export * from './vo/oss-config.types';
 export * from './shared-file-upload.module';
 export * from './dto/index';
+export * from './oss-storage-setting.controller';
+export * from './oss-storage-admin.module';

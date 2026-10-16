@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { IPageData } from '@qyy-code-lego/nestjs/core/Pagination';
 import { BizError } from '@qyy-code-lego/nestjs/core/BizError';
@@ -10,6 +10,7 @@ import {
 import { SysFileEntity } from '@qyy-code-lego/nestjs/entities/core/sys/sys-file.entity';
 import { SysOssConfigEntity } from '@qyy-code-lego/nestjs/entities/core/sys/sys-oss-config.entity';
 import { Repository } from 'typeorm';
+import { OssStorageSettingService } from './oss-storage-setting.service';
 import { RedisService } from '../redis/redis.service';
 
 const MIN_MULTIPART_CHUNK_SIZE = 5 * 1024 * 1024;
@@ -57,6 +58,7 @@ export class OssConfigService {
     @InjectRepository(SysFileEntity)
     private readonly fileRepo: Repository<SysFileEntity>,
     private readonly redisService: RedisService,
+    @Optional() private readonly storageSetting?: OssStorageSettingService,
   ) {}
 
   async create(
@@ -196,18 +198,57 @@ export class OssConfigService {
   }
 
   async delete(code: string): Promise<boolean> {
-    const entity = await this.findEntity(code);
-    const fileCount = await this.fileRepo.count({
-      where: { storageType: 'oss', ossConfigCode: code },
-    });
-    if (fileCount > 0) {
-      throw new BizError('该 OSS 配置仍被文件记录使用，不能删除')
-        .codeAs(409)
-        .httpStatusAs(409);
+    if (!this.storageSetting) {
+      const entity = await this.findEntity(code);
+      const fileCount = await this.fileRepo.count({
+        where: { storageType: 'oss', ossConfigCode: code },
+      });
+      if (fileCount > 0)
+        throw new BizError('该 OSS 配置仍被文件记录使用，不能删除')
+          .codeAs(409)
+          .httpStatusAs(409);
+      await this.clearCache(entity.code);
+      const result = await this.ossConfigRepo.delete(entity.code);
+      return !!result.affected;
     }
-    await this.clearCache(entity.code);
-    const result = await this.ossConfigRepo.delete(entity.code);
-    return !!result.affected;
+
+    return this.ossConfigRepo.manager
+      .transaction(async (manager) => {
+        if (this.storageSetting) {
+          await manager.query(
+            'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+            [`oss-storage:${this.storageSetting.configCode}`],
+          );
+          if (
+            (await this.storageSetting.current(manager)).ossConfigCode === code
+          )
+            throw new BizError('不能删除当前文件存储')
+              .codeAs(409)
+              .httpStatusAs(409);
+        }
+        const repo = manager.getRepository(SysOssConfigEntity);
+        const entity = await repo.findOne({
+          where: { code },
+          lock: { mode: 'pessimistic_write' },
+        });
+        if (!entity)
+          throw new BizError('配置不存在').codeAs(404).httpStatusAs(404);
+        const fileCount = await manager.getRepository(SysFileEntity).count({
+          where: { storageType: 'oss', ossConfigCode: code },
+          withDeleted: true,
+        });
+        if (fileCount > 0) {
+          throw new BizError('该 OSS 配置仍被文件记录使用，不能删除')
+            .codeAs(409)
+            .httpStatusAs(409);
+        }
+        const result = await repo.delete(entity.code);
+        return !!result.affected;
+      })
+      .then(async (deleted) => {
+        await this.clearCache(code);
+        return deleted;
+      });
   }
 
   private async findEntity(code: string) {

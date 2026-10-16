@@ -11,11 +11,12 @@ when_to_use: 关键词 — file, upload, oss, 直传, OssUploadPolicy, OssWebSdk
 
 ## OSS 直传（新工程默认）
 
-**存储位置只由服务端决定**：实现并注册 `OssUploadPolicy`（`@qyy-code-lego/nestjs/common`），按 `purpose` 返回 `{ ossConfigCode, key, acl?, meta? }`；前端 `OssWebSdk.upload({ file, purpose })` 直传，业务接口只收 `fileId`。禁止前端配置 / 拼接 `ossConfigCode`、桶前缀、对象键（`VITE_OSS_CONFIG_CODE` 一类做法已废弃）。OSS 配置写 `sys_oss_config`，存储选择放运行时配置。完整约定见 `docs/development/oss-upload.md`。
+**存储位置只由服务端决定**：实现并注册 `OssUploadPolicy`（`@qyy-code-lego/nestjs/common`），按 `purpose` 返回 `{ ossConfigCode, key, acl?, meta? }`；前端 `OssWebSdk.upload({ file, purpose })` 直传，业务接口只收 `fileId`。禁止前端配置 / 拼接 `ossConfigCode`、桶前缀、对象键（`VITE_OSS_CONFIG_CODE` 一类做法已废弃）。OSS 配置写 `sys_oss_config`；默认存储和根前缀统一使用框架 `OssStorageSettingService`（`OssStorageSettingModule`），不要另写项目配置服务或依赖 env。后台由 `OssStorageAdminModule` 提供 `GET/PUT /file-storage`，此能力显式导入才启用，既有文件模块不自动启用。标准配置项为 `file.storage`，`keyPrefix` 非必填，首次默认为空（原样使用业务路径），更新省略保留已有值，空串关闭前缀，OSS 必须由管理员显式选择；策略调用 `resolvePath` 拼接服务端业务子路径。自定义鉴权/审计的工程仅复用纯服务，外部事务提交后调用 `invalidate()`。完整约定见 `docs/development/oss-upload.md`。
 
 | 服务 | 职责 |
 | - | - |
-| `OssUploadPolicy` | 工程实现：用途校验、配置 / 对象键 / ACL |
+| `OssStorageSettingService` | 框架提供：动态默认 OSS、根前缀、版本并发、安全业务路径拼接 |
+| `OssUploadPolicy` | 工程实现：用途校验、业务子路径 / ACL，复用 `resolvePath` |
 | `MultipartUploadService` | 直传签名、分片、回调核对、续传（按上传人 + hash + 大小 + 用途） |
 | `S3StorageService` | 服务端读写对象（`uploadObject` / `downloadObject` / `getObjectMetadata`） |
 
