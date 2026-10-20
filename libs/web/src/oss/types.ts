@@ -34,17 +34,26 @@ export interface UploadPartChecksum {
 export interface MultipartUploadSession {
   fileId: string;
   uploadId: string;
+  /** 服务端返回的对象键。 */
   key: string;
-  ossConfigCode: string;
+  /** 服务端返回的 OSS 配置 code。 */
+  ossConfigCode?: string;
   chunkSize: number;
   uploadedParts: UploadedPart[];
 }
 
 export interface MultipartInitializeInput {
   file: File;
-  key: string;
+  /**
+   * 上传用途。服务端注册了上传策略（OssUploadPolicy）时只传它，
+   * OSS 配置与对象键由服务端决定。
+   */
+  purpose?: string;
+  /** @deprecated 仅服务端未注册上传策略的旧模式使用。 */
+  key?: string;
+  /** @deprecated 仅服务端未注册上传策略的旧模式使用。 */
+  ossConfigCode?: string;
   hash: string;
-  ossConfigCode: string;
   chunkSize?: number;
   metadata?: Record<string, string>;
   meta?: Record<string, unknown>;
@@ -76,8 +85,15 @@ export interface MultipartUploadAdapter {
 
 export interface FileUploadProcessOptions {
   file: File;
-  key: string;
-  ossConfigCode: string;
+  /**
+   * 上传用途。服务端注册了上传策略（OssUploadPolicy）时只传它，
+   * OSS 配置与对象键由服务端决定。
+   */
+  purpose?: string;
+  /** @deprecated 仅服务端未注册上传策略的旧模式使用。 */
+  key?: string;
+  /** @deprecated 仅服务端未注册上传策略的旧模式使用。 */
+  ossConfigCode?: string;
   adapter: MultipartUploadAdapter;
   directUpload?: (signal: AbortSignal) => Promise<MultipartCompleteResult>;
   uploadMode?: FileUploadStrategy;

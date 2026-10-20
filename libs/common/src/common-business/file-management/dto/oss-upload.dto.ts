@@ -8,17 +8,26 @@ import {
   IsString,
   Matches,
   Max,
+  MaxLength,
   Min,
 } from 'class-validator';
 
 export class OssPutSignDto {
-  @IsNotEmpty()
+  /** 上传用途；注册了 OssUploadPolicy 时由策略据此决定存储位置。 */
+  @IsOptional()
   @IsString()
-  ossConfigCode: string;
+  @MaxLength(64)
+  purpose?: string;
 
-  @IsNotEmpty()
+  /** @deprecated 仅未注册 OssUploadPolicy 的旧模式使用；策略模式下传入会被拒绝。 */
+  @IsOptional()
   @IsString()
-  key: string;
+  ossConfigCode?: string;
+
+  /** @deprecated 仅未注册 OssUploadPolicy 的旧模式使用；策略模式下传入会被拒绝。 */
+  @IsOptional()
+  @IsString()
+  key?: string;
 
   @IsNotEmpty()
   @IsString()
@@ -57,6 +66,7 @@ export class OssPutSignDto {
   @IsObject()
   meta?: Record<string, unknown>;
 
+  /** @deprecated 仅旧模式使用；策略模式下由策略决定。 */
   @IsOptional()
   @IsString()
   acl?: ObjectCannedACL;
@@ -97,13 +107,21 @@ export class OssGetSignDto {
 }
 
 export class OssMultipartInitDto {
-  @IsNotEmpty()
+  /** 上传用途；注册了 OssUploadPolicy 时由策略据此决定存储位置。 */
+  @IsOptional()
   @IsString()
-  ossConfigCode: string;
+  @MaxLength(64)
+  purpose?: string;
 
-  @IsNotEmpty()
+  /** @deprecated 仅未注册 OssUploadPolicy 的旧模式使用；策略模式下传入会被拒绝。 */
+  @IsOptional()
   @IsString()
-  key: string;
+  ossConfigCode?: string;
+
+  /** @deprecated 仅未注册 OssUploadPolicy 的旧模式使用；策略模式下传入会被拒绝。 */
+  @IsOptional()
+  @IsString()
+  key?: string;
 
   @IsNotEmpty()
   @IsString()
@@ -125,6 +143,7 @@ export class OssMultipartInitDto {
   @IsObject()
   metadata?: Record<string, string>;
 
+  /** @deprecated 仅旧模式使用；策略模式下由策略决定。 */
   @IsOptional()
   @IsString()
   acl?: ObjectCannedACL;
@@ -141,6 +160,7 @@ export class OssMultipartInitDto {
   @IsObject()
   meta?: Record<string, any>;
 
+  /** @deprecated 仅旧模式使用。 */
   @IsOptional()
   @IsString()
   domain?: string;

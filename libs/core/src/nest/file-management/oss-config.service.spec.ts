@@ -1,4 +1,4 @@
-import type { Repository } from 'typeorm';
+import type { EntityManager, Repository } from 'typeorm';
 import { BizError } from '@qyy-code-lego/nestjs/core/BizError';
 import type { RedisService } from '@qyy-code-lego/nestjs/core/nest/redis/redis.service';
 import {
@@ -165,5 +165,14 @@ function createService(
     set: jest.fn(() => Promise.resolve('OK')),
     del: jest.fn(() => Promise.resolve(1)),
   } as unknown as RedisService;
+  const manager = {
+    getRepository: (entity: unknown) =>
+      entity === SysOssConfigEntity ? repo : fileRepo,
+  } as unknown as EntityManager;
+  Object.assign(repo, {
+    manager: {
+      transaction: (work: (manager: EntityManager) => unknown) => work(manager),
+    },
+  });
   return new OssConfigService(repo, fileRepo, redis);
 }

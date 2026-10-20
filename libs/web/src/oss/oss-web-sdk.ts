@@ -11,8 +11,15 @@ import type {
 
 export interface DirectUploadOptions {
   file: File;
-  key: string;
-  ossConfigCode: string;
+  /**
+   * 上传用途。服务端注册了上传策略（OssUploadPolicy）时只传它，
+   * OSS 配置与对象键由服务端决定。
+   */
+  purpose?: string;
+  /** @deprecated 仅服务端未注册上传策略的旧模式使用。 */
+  key?: string;
+  /** @deprecated 仅服务端未注册上传策略的旧模式使用。 */
+  ossConfigCode?: string;
   hash?: string;
   meta?: Record<string, unknown>;
   signal?: AbortSignal;
@@ -44,6 +51,7 @@ export class OssWebSdk {
         const hash = options.hash ?? (await hashProvider(options.file, signal));
         return await this.upload({
           file: options.file,
+          purpose: options.purpose,
           key: options.key,
           ossConfigCode: options.ossConfigCode,
           hash,
@@ -76,6 +84,7 @@ export class OssWebSdk {
     }>(
       this.client.endpoints.signPut,
       {
+        purpose: options.purpose,
         ossConfigCode: options.ossConfigCode,
         key: options.key,
         filename: options.file.name,

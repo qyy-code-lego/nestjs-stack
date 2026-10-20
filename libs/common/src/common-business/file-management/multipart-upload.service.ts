@@ -1,9 +1,15 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Optional } from '@nestjs/common';
 import { BizError } from '@qyy-code-lego/nestjs/core/BizError';
 import { FileService } from '@qyy-code-lego/nestjs/core/nest/file-management/file.service';
 import { S3StorageService } from '@qyy-code-lego/nestjs/core/nest/s3-storage';
 import type { ObjectCannedACL } from '@aws-sdk/client-s3';
 import { IdentityType } from '@qyy-code-lego/nestjs/entities/core/identity/constants';
+import type { SysFileEntity } from '@qyy-code-lego/nestjs/entities/core/sys/sys-file.entity';
+import {
+  OssUploadPolicy,
+  UPLOAD_ACL_META_KEY,
+  UPLOAD_PURPOSE_META_KEY,
+} from './oss-upload-policy';
 
 const MIN_S3_MULTIPART_CHUNK_SIZE = 5 * 1024 * 1024;
 const MAX_S3_MULTIPART_PARTS = 10_000;
@@ -13,9 +19,36 @@ export interface MultipartUploadActor {
   identityId?: string;
 }
 
-export interface PrepareDirectUploadInput {
+/** 由服务端上传策略决定、客户端不得传入的字段。 */
+const POLICY_OWNED_FIELDS = ['ossConfigCode', 'key', 'acl', 'domain'] as const;
+
+/**
+ * 存储位置参数：注册了 OssUploadPolicy 时只用 `purpose`；
+ * `ossConfigCode` / `key` / `acl` / `domain` 仅供未注册策略的旧模式（已废弃）。
+ */
+interface UploadLocationInput {
+  purpose?: string;
+  /** @deprecated 由 OssUploadPolicy 决定 */
+  ossConfigCode?: string;
+  /** @deprecated 由 OssUploadPolicy 决定 */
+  key?: string;
+  /** @deprecated 由 OssUploadPolicy 决定 */
+  acl?: ObjectCannedACL;
+  /** @deprecated 由 OssUploadPolicy 决定 */
+  domain?: string;
+}
+
+interface UploadLocation {
   ossConfigCode: string;
   key: string;
+  acl?: ObjectCannedACL;
+  domain?: string;
+  meta: Record<string, unknown>;
+  /** 可复用的已有上传任务（旧模式按 key 查找，策略模式按续传条件查找）。 */
+  existing: SysFileEntity | null;
+}
+
+export interface PrepareDirectUploadInput extends UploadLocationInput {
   filename: string;
   hash: string;
   size: string;
@@ -25,23 +58,18 @@ export interface PrepareDirectUploadInput {
   contentDisposition?: string;
   metadata?: Record<string, string>;
   meta?: Record<string, unknown>;
-  acl?: ObjectCannedACL;
   expiresIn?: number;
 }
 
-export interface InitMultipartUploadInput {
-  ossConfigCode: string;
-  key: string;
+export interface InitMultipartUploadInput extends UploadLocationInput {
   hash: string;
   filename: string;
   contentType?: string;
   cacheControl?: string;
   metadata?: Record<string, string>;
-  acl?: ObjectCannedACL;
   mimeType?: string;
   suffix?: string;
   meta?: Record<string, unknown>;
-  domain?: string;
   size: string;
   chunkSize?: number;
 }
@@ -63,7 +91,13 @@ export class MultipartUploadService {
   constructor(
     private readonly fileService: FileService,
     private readonly s3StorageService: S3StorageService,
+    @Optional() private readonly uploadPolicy?: OssUploadPolicy,
   ) {}
+
+  /** 是否由服务端上传策略决定存储位置。 */
+  get policyMode() {
+    return !!this.uploadPolicy;
+  }
 
   async prepareDirectUpload(
     input: PrepareDirectUploadInput,
@@ -71,10 +105,8 @@ export class MultipartUploadService {
   ) {
     this.assertAuthenticatedActor(actor);
     const expectedSize = this.parseFileSize(input.size, true);
-    let file = await this.fileService.findOssByObject(
-      input.key,
-      input.ossConfigCode,
-    );
+    const location = await this.locate(input, actor, expectedSize);
+    let file = location.existing;
 
     if (file) {
       this.assertUploadOwner(file.createdBy, actor);
@@ -90,7 +122,7 @@ export class MultipartUploadService {
         filename: input.filename,
         mimeType: input.contentType,
         suffix: this.getFileSuffix(input.filename),
-        meta: input.meta ?? file.meta ?? {},
+        meta: location.meta,
         size: `${expectedSize}`,
         updatedBy: actor.identityId,
       });
@@ -102,11 +134,11 @@ export class MultipartUploadService {
             filename: input.filename,
             mimeType: input.contentType,
             suffix: this.getFileSuffix(input.filename),
-            meta: input.meta ?? {},
-            object: input.key,
+            meta: location.meta,
+            object: location.key,
             hash: input.hash,
             storageType: 'oss',
-            ossConfigCode: input.ossConfigCode,
+            ossConfigCode: location.ossConfigCode,
             size: `${expectedSize}`,
             completed: false,
           },
@@ -119,7 +151,16 @@ export class MultipartUploadService {
     }
 
     const signed = await this.s3StorageService.generatePresignedPutUrl({
-      ...input,
+      ossConfigCode: location.ossConfigCode,
+      key: location.key,
+      // 策略模式的 ACL 在直传完成后由服务端设置（见 applyUploadAcl），不放进预签名 URL。
+      acl: this.uploadPolicy ? undefined : location.acl,
+      contentType: input.contentType,
+      cacheControl: input.cacheControl,
+      contentDisposition: input.contentDisposition,
+      metadata: input.metadata,
+      contentMd5: input.contentMd5,
+      expiresIn: input.expiresIn,
       contentLength: expectedSize,
     });
     return { ...signed, file, completed: false as const };
@@ -154,21 +195,13 @@ export class MultipartUploadService {
     actor: MultipartUploadActor,
   ) {
     this.assertAuthenticatedActor(actor);
-    if (!input.ossConfigCode) {
-      throw new BizError('参数 ossConfigCode 不能为空').codeAs(400);
-    }
     if (!input.hash) {
       throw new BizError('参数 hash 不能为空').codeAs(400);
     }
-    if (!input.key) {
-      throw new BizError('参数 key 不能为空').codeAs(400);
-    }
 
     const fileSize = this.parsePositiveFileSize(input.size);
-    let file = await this.fileService.findOssByObject(
-      input.key,
-      input.ossConfigCode,
-    );
+    const location = await this.locate(input, actor, fileSize);
+    let file = location.existing;
     if (file) {
       this.assertUploadOwner(file.createdBy, actor);
       if (file.hash !== input.hash) {
@@ -188,7 +221,7 @@ export class MultipartUploadService {
 
     const resolvedChunkSize =
       await this.s3StorageService.resolveMultipartChunkSize(
-        input.ossConfigCode,
+        location.ossConfigCode,
         input.chunkSize,
       );
 
@@ -212,19 +245,19 @@ export class MultipartUploadService {
       filename: input.filename,
       mimeType: input.mimeType,
       suffix: input.suffix,
-      meta: input.meta ?? file?.meta ?? {},
-      object: input.key,
+      meta: location.meta,
+      object: location.key,
       hash: input.hash,
-      domain: input.domain,
+      domain: location.domain,
       storageType: 'oss' as const,
-      ossConfigCode: input.ossConfigCode,
+      ossConfigCode: location.ossConfigCode,
       size: `${fileSize}`,
       chunkSize: effectiveChunkSize,
       completed: false,
     };
 
     let initPayload: { key: string; uploadId?: string; bucket?: string } = {
-      key: input.key,
+      key: location.key,
       uploadId,
     };
     if (!file) {
@@ -243,7 +276,14 @@ export class MultipartUploadService {
     }
 
     if (shouldInitUpload) {
-      initPayload = await this.s3StorageService.initMultipartUpload(input);
+      initPayload = await this.s3StorageService.initMultipartUpload({
+        ossConfigCode: location.ossConfigCode,
+        key: location.key,
+        acl: location.acl,
+        contentType: input.contentType,
+        cacheControl: input.cacheControl,
+        metadata: input.metadata,
+      });
       uploadId = initPayload.uploadId;
     }
 
@@ -257,14 +297,14 @@ export class MultipartUploadService {
     let parts: { partNumber?: number; eTag?: string }[] = [];
     if (!isNew && !shouldInitUpload && uploadId) {
       parts = await this.listAllUploadParts({
-        ossConfigCode: input.ossConfigCode,
-        key: input.key,
+        ossConfigCode: location.ossConfigCode,
+        key: location.key,
         uploadId,
       });
     }
 
     return {
-      upload: initPayload,
+      upload: { ...initPayload, ossConfigCode: location.ossConfigCode },
       file,
       chunkSize: effectiveChunkSize,
       parts,
@@ -333,6 +373,7 @@ export class MultipartUploadService {
     if (objectMetadata.size !== expectedSize) {
       throw new BizError('OSS 对象大小与上传任务不一致').codeAs(400);
     }
+    await this.applyUploadAcl(file);
     file.mimeType = objectMetadata.contentType;
     file.fullUrl = objectMetadata.fullUrl;
     file.size = `${objectMetadata.size}`;
@@ -392,6 +433,7 @@ export class MultipartUploadService {
     if (objectMetadata.size !== fileSize) {
       throw new BizError('合并后的 OSS 对象大小与上传任务不一致').codeAs(400);
     }
+    await this.applyUploadAcl(file);
 
     file.fullUrl = objectMetadata.fullUrl ?? completeResult.fullUrl;
     file.mimeType = objectMetadata.contentType ?? file.mimeType;
@@ -422,6 +464,96 @@ export class MultipartUploadService {
     file.completed = false;
     file.updatedBy = actor.identityId;
     return await this.fileService.save(file);
+  }
+
+  /**
+   * 决定上传位置。注册了 OssUploadPolicy 时由策略决定配置、对象键与 ACL，
+   * 并按“同一上传人 + hash + 大小 + 用途”复用未完成任务以支持续传；
+   * 否则沿用客户端传入的 ossConfigCode / key（已废弃）。
+   */
+  private async locate(
+    input: UploadLocationInput & {
+      filename: string;
+      hash: string;
+      contentType?: string;
+      meta?: Record<string, unknown>;
+    },
+    actor: Required<MultipartUploadActor>,
+    size: number,
+  ): Promise<UploadLocation> {
+    if (!this.uploadPolicy) return await this.locateLegacy(input);
+    const owned = POLICY_OWNED_FIELDS.filter(
+      (field) => input[field] !== undefined && input[field] !== '',
+    );
+    if (owned.length) {
+      throw new BizError(
+        `OSS 配置与对象键由服务端决定，请改传 purpose，不要传 ${owned.join('、')}`,
+      ).codeAs(400);
+    }
+    const purpose = input.purpose?.trim() ?? '';
+    const target = await this.uploadPolicy.resolve({
+      purpose: purpose || undefined,
+      filename: input.filename,
+      size,
+      contentType: input.contentType,
+      hash: input.hash,
+      actor,
+    });
+    const meta = {
+      ...(input.meta ?? {}),
+      ...(target.meta ?? {}),
+      [UPLOAD_PURPOSE_META_KEY]: purpose,
+      [UPLOAD_ACL_META_KEY]: target.acl ?? null,
+    };
+    const existing = await this.fileService.findPendingOssUpload({
+      createdBy: actor.identityId,
+      hash: input.hash,
+      size: `${size}`,
+      purpose,
+    });
+    return existing?.ossConfigCode
+      ? {
+          ossConfigCode: existing.ossConfigCode,
+          key: existing.object,
+          acl: target.acl,
+          meta,
+          existing,
+        }
+      : { ...target, meta, existing: null };
+  }
+
+  /** 策略模式：直传完成后按任务记录的 ACL 设置对象权限（部分 S3 兼容服务不识别预签名中的 ACL）。 */
+  private async applyUploadAcl(file: SysFileEntity) {
+    const acl = file.meta?.[UPLOAD_ACL_META_KEY] as ObjectCannedACL | undefined;
+    if (!acl || !file.ossConfigCode) return;
+    await this.s3StorageService.setObjectAcl({
+      ossConfigCode: file.ossConfigCode,
+      key: file.object,
+      acl,
+    });
+  }
+
+  private async locateLegacy(
+    input: UploadLocationInput & { meta?: Record<string, unknown> },
+  ): Promise<UploadLocation> {
+    if (!input.ossConfigCode) {
+      throw new BizError('参数 ossConfigCode 不能为空').codeAs(400);
+    }
+    if (!input.key) {
+      throw new BizError('参数 key 不能为空').codeAs(400);
+    }
+    const existing = await this.fileService.findOssByObject(
+      input.key,
+      input.ossConfigCode,
+    );
+    return {
+      ossConfigCode: input.ossConfigCode,
+      key: input.key,
+      acl: input.acl,
+      domain: input.domain,
+      meta: input.meta ?? existing?.meta ?? {},
+      existing,
+    };
   }
 
   private async listAllUploadParts(input: {
