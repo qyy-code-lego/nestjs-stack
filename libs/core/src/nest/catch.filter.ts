@@ -118,6 +118,13 @@ export class CatchEverythingFilter implements ExceptionFilter {
         caught = true;
         if (/invalid input syntax for type uuid|invalid uuid|invalid input syntax/i.test(dbMsg)) {
           httpStatus = HttpStatus.BAD_REQUEST;
+          // DEFECT-R42-B18-observability: 测试侧报告多个 admin GET 列表接口返笼统 400「参数格式不正确」，
+          // 无法定位是哪个路由/哪个字段触发 uuid 格式错误。这里打 WARN 日志带路由+原始 DB message，
+          // 让测试侧从 pm2 logs 一次定位（R42-B17 第二节要求「可观测的最小改动」）。
+          const req = ctx.getRequest<{ method?: string; url?: string }>();
+          this.logger.warn(
+            `DB uuid format error: route=${req?.method ?? '?'} ${req?.url ?? '?'} msg=${dbMsg}`,
+          );
           responseBody = ApiResBody.ofWith(400, '参数格式不正确');
         } else if (dbCode === '23505' || /duplicate key|unique constraint/i.test(dbMsg)) {
           httpStatus = HttpStatus.CONFLICT;
