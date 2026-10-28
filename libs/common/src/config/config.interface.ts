@@ -115,6 +115,8 @@ export interface DataSourceConfig {
   extra?: Record<string, unknown>;
   /** 慢查询日志阈值（毫秒），超过则记 warn，便于排查 */
   maxQueryExecutionTime?: number;
+  /** 连接池诊断标识：pg_stat_activity.application_name 可见三端来源 */
+  applicationName?: string;
 }
 
 declare global {

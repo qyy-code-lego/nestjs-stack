@@ -91,6 +91,8 @@ export const datasourceConfigObject = (
       synchronize: false,
       logging: process.env.TYPEORM_LOGGING === 'true' ? true : false,
       namingStrategy: new SnakeNamingStrategy(),
+      // 连接池诊断标识：pg_stat_activity.application_name 可见三端来源
+      applicationName: process.env.APPLICATION_NAME || undefined,
       extra: buildPoolExtra(type),
       // 慢查询告警阈值，便于定位「拖垮连接池」的重查询
       maxQueryExecutionTime: parseIntEnv(
