@@ -60,6 +60,8 @@ function buildPoolExtra(type: DatasourceType): Record<string, unknown> {
       query_timeout: queryTimeoutMs,
       // 杀掉「事务开着但空闲」的连接，防长事务长期持锁持连接
       idle_in_transaction_session_timeout: idleTxTimeoutMs,
+      // 连接池诊断标识：pg_stat_activity.application_name 可见三端来源
+      application_name: process.env.APPLICATION_NAME || undefined,
     };
   }
   if (type === 'mysql' || type === 'mariadb') {
