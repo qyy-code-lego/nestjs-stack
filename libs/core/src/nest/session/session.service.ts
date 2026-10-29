@@ -169,7 +169,7 @@ export class SessionService {
   ): Promise<SessionData> {
     const session = await this.getSession(accountId, system, jti);
     if (!session) {
-      throw new BizError('会话已失效，请重新登录')
+      throw new BizError('登录已过期，请重新登录')
         .codeAs(SESSION_BIZ_CODE.INVALID)
         .httpStatusAs(401);
     }
