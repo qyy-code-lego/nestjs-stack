@@ -88,9 +88,12 @@ export class SessionGuard implements CanActivate {
       const credentialChangedAt = await this.credentialChecker.getCredentialChangedAt(user.accountId, user.system);
       if (credentialChangedAt !== null) {
         // JWT iat 是秒级，credentialChangedAt 是毫秒级（timestamptz）
-        // 统一截断到秒再比，避免同秒改密+签发导致新令牌被自己判失效
+        // 统一截断到秒再比；用 <= 而非 <：
+        //   改密后旧令牌 iat 可能与 credentialChangedSec 同秒（DB timestamptz 截断到秒），
+        //   用 < 则同秒改密的旧令牌不失效（S13 自验发现的时序漏洞）；用 <= 则旧令牌被失效。
+        //   新令牌在改密之后签发，iat 必然 > credentialChangedSec，不受影响。
         const credentialChangedSec = Math.floor(credentialChangedAt / 1000);
-        if (user.iat < credentialChangedSec) {
+        if (user.iat <= credentialChangedSec) {
           throw new BizError('凭证已变更，请重新登录')
             .codeAs(SESSION_BIZ_CODE.INVALID)
             .httpStatusAs(401);
