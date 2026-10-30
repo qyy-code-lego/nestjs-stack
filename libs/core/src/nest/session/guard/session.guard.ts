@@ -1,5 +1,5 @@
-import { CanActivate, ExecutionContext, Inject, Injectable, Logger, Optional } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
+import { CanActivate, ExecutionContext, Injectable, Logger } from '@nestjs/common';
+import { ModuleRef, Reflector } from '@nestjs/core';
 import { Request } from 'express';
 import { SessionService } from '../session.service';
 import { IS_PUBLIC_KEY } from '../../jwt-auth/decorator/public.decorator';
@@ -52,12 +52,35 @@ export const CREDENTIAL_CHECKER = Symbol('CREDENTIAL_CHECKER');
 export class SessionGuard implements CanActivate {
   private static readonly logger = new Logger(SessionGuard.name);
   private static credentialCheckerWarned = false;
+  private cachedCredentialChecker: CredentialChecker | null | undefined;
 
   constructor(
     private readonly reflector: Reflector,
     private readonly sessionService: SessionService,
-    @Optional() @Inject(CREDENTIAL_CHECKER) private readonly credentialChecker?: CredentialChecker,
+    private readonly moduleRef: ModuleRef,
   ) {}
+
+  /**
+   * 懒查 CREDENTIAL_CHECKER token（跨模块）。
+   *
+   * SessionGuard 由 JwtAuthModule（@Global）实例化，但 CredentialCheckModule
+   * 只在各 app 的根 Module 里 import。构造期 @Optional() @Inject(CREDENTIAL_CHECKER)
+   * 在 JwtAuthModule 的 DI 作用域内不可见 → 注入 undefined。
+   *
+   * 改用 ModuleRef.get(CREDENTIAL_CHECKER, { strict: false }) 在首次调用时
+   * 从整个应用 DI 容器懒查，绕过模块作用域限制。
+   */
+  private getCredentialChecker(): CredentialChecker | null {
+    if (this.cachedCredentialChecker !== undefined) {
+      return this.cachedCredentialChecker;
+    }
+    try {
+      this.cachedCredentialChecker = this.moduleRef.get(CREDENTIAL_CHECKER, { strict: false });
+    } catch {
+      this.cachedCredentialChecker = null;
+    }
+    return this.cachedCredentialChecker;
+  }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // 1. 检查是否是公开接口
@@ -83,9 +106,10 @@ export class SessionGuard implements CanActivate {
     );
 
     // 4. L711 B' — 段② 凭证时间比对 + 段③ 账号状态检查
-    if (this.credentialChecker) {
+    const credentialChecker = this.getCredentialChecker();
+    if (credentialChecker) {
       // 段②：改密 / 重置后旧令牌失效
-      const credentialChangedAt = await this.credentialChecker.getCredentialChangedAt(user.accountId, user.system);
+      const credentialChangedAt = await credentialChecker.getCredentialChangedAt(user.accountId, user.system);
       if (credentialChangedAt !== null) {
         // JWT iat 是秒级，credentialChangedAt 是毫秒级（timestamptz）
         // 统一截断到秒再比；用 <= 而非 <：
@@ -101,7 +125,7 @@ export class SessionGuard implements CanActivate {
       }
 
       // 段③：账号停用 → 401（PRD L728 原文）
-      const accountStatus = await this.credentialChecker.getAccountStatus(user.accountId, user.system);
+      const accountStatus = await credentialChecker.getAccountStatus(user.accountId, user.system);
       if (accountStatus !== null && accountStatus !== 'active') {
         throw new BizError('账号已被停用，请联系管理员')
           .codeAs(SESSION_BIZ_CODE.INVALID)
