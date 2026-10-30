@@ -70,7 +70,7 @@ export class SessionGuard implements CanActivate {
    * 改用 ModuleRef.get(CREDENTIAL_CHECKER, { strict: false }) 在首次调用时
    * 从整个应用 DI 容器懒查，绕过模块作用域限制。
    */
-  private getCredentialChecker(): CredentialChecker | null {
+  private getCredentialChecker(): CredentialChecker | null | undefined {
     if (this.cachedCredentialChecker !== undefined) {
       return this.cachedCredentialChecker;
     }
