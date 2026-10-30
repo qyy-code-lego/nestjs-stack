@@ -11,6 +11,8 @@ import { OpDeptSharedService } from './op-dept-shared.service';
 import { IdentityActiveService } from './identity-active.service';
 import { UserSharedService } from './user-shared.service';
 import { AccountAvatarUpdatedListener } from './account-avatar-updated.listener';
+import { CredentialCheckService } from './credential-check.service';
+import { CREDENTIAL_CHECKER } from '@qyy-code-lego/nestjs/core';
 
 import { PasswordUtil } from '../../utils/password';
 import { DataScopeEngine } from '../../utils/dataScopeEngine';
@@ -52,6 +54,9 @@ class OpUserBootstrapService implements OnModuleInit {
     PasswordUtil,
     DataScopeEngine,
     OpUserBootstrapService,
+    // L711 B' — 凭证失效检查服务（SessionGuard 段②③）
+    CredentialCheckService,
+    { provide: CREDENTIAL_CHECKER, useExisting: CredentialCheckService },
   ],
   exports: [
     FindAccountService,
@@ -62,6 +67,8 @@ class OpUserBootstrapService implements OnModuleInit {
     IdentityActiveService,
     PasswordUtil,
     DataScopeEngine,
+    // 导出 CREDENTIAL_CHECKER token 供 SessionGuard @Optional() 注入
+    CREDENTIAL_CHECKER,
   ],
 })
 export class SharedServicesModule {}

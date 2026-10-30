@@ -8,3 +8,4 @@ export * from './op-role-shared.service';
 export * from './op-user-shared.service';
 export * from './user-shared.service';
 export * from './shared-services.module';
+export * from './credential-check.module';

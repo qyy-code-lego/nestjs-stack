@@ -34,4 +34,12 @@ export abstract class BaseAccountCredential extends WithTimeTrace(
   /** 密码最后修改时间。null = 从未改过（首登强制改密 / 重置后回退），非 null = 已改过 */
   @Column({ name: 'password_changed_at', type: 'timestamptz', nullable: true })
   passwordChangedAt?: Date | null;
+
+  /**
+   * 密码重置时间（L711 B' — 管理端重置密码后旧令牌失效）。
+   * resetOpUserPassword 写 now()，changePassword 不写（它写 passwordChangedAt）。
+   * Guard 比对 max(passwordChangedAt, passwordResetAt)，两者都 null → 不失效。
+   */
+  @Column({ name: 'password_reset_at', type: 'timestamptz', nullable: true })
+  passwordResetAt?: Date | null;
 }

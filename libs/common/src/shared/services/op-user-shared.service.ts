@@ -774,6 +774,7 @@ export class OpUserSharedService {
         credential.salt = salt;
         credential.status = ObjectActiveStatus.ACTIVE;
         credential.passwordChangedAt = null; // 重置密码 → 回退到首登强制改密
+        credential.passwordResetAt = new Date(); // L711 B' — 旧令牌失效（guard 比对 max(changedAt, resetAt)）
         await manager.save(credential);
         return;
       }
@@ -788,8 +789,15 @@ export class OpUserSharedService {
           isPrimary: true,
           status: ObjectActiveStatus.ACTIVE,
           passwordChangedAt: null, // 重置密码 → 回退到首登强制改密
+          passwordResetAt: new Date(), // L711 B' — 旧令牌失效
         }),
       );
     });
+
+    // L711 B' — 重置密码后清除账号缓存，确保 guard 查到最新 passwordResetAt
+    await this.findAccountService.clearAccountCache(
+      user.accountId,
+      identifier,
+    );
   }
 }

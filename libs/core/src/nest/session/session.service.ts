@@ -189,7 +189,7 @@ export class SessionService {
     if (now - session.lastActivityAt > maxTime) {
       // 发现超时，删除会话
       await this.deleteSession(accountId, system, jti);
-      throw new BizError('会话已超时，请重新登录')
+      throw new BizError('登录已过期，请重新登录')
         .codeAs(SESSION_BIZ_CODE.TIMEOUT)
         .httpStatusAs(401);
     }
