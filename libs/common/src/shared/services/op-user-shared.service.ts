@@ -312,6 +312,7 @@ export class OpUserSharedService {
           salt,
           isPrimary: true,
           status: ObjectActiveStatus.ACTIVE,
+          passwordChangedAt: null, // 新建账号 → 首登强制改密
         });
         await manager.save(credential);
       }
@@ -772,6 +773,7 @@ export class OpUserSharedService {
         credential.secret = hash;
         credential.salt = salt;
         credential.status = ObjectActiveStatus.ACTIVE;
+        credential.passwordChangedAt = null; // 重置密码 → 回退到首登强制改密
         await manager.save(credential);
         return;
       }
@@ -785,6 +787,7 @@ export class OpUserSharedService {
           salt,
           isPrimary: true,
           status: ObjectActiveStatus.ACTIVE,
+          passwordChangedAt: null, // 重置密码 → 回退到首登强制改密
         }),
       );
     });

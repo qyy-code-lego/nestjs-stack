@@ -30,4 +30,8 @@ export abstract class BaseAccountCredential extends WithTimeTrace(
 
   @Column({ length: 16, type: 'varchar', default: ObjectActiveStatus.ACTIVE })
   status: ObjectActiveStatus;
+
+  /** 密码最后修改时间。null = 从未改过（首登强制改密 / 重置后回退），非 null = 已改过 */
+  @Column({ name: 'password_changed_at', type: 'timestamptz', nullable: true })
+  passwordChangedAt?: Date | null;
 }
