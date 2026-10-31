@@ -18,6 +18,7 @@ import { ThreadLocal } from '@qyy-code-lego/nestjs/core/nest/als/thread-local';
 import {
   Identity,
   IdentityType,
+  ObjectActiveStatus,
   OpUser,
   OpUserRole,
 } from '@qyy-code-lego/nestjs/entities';
@@ -60,7 +61,7 @@ export class OpUserController {
     return ApiResBody.of(user);
   }
 
-  @PermissionRequired('system:user:view') // DEFECT-R7B-A22-1-01
+  @PermissionRequired('system:user:edit') // DEFECT-R7B-A22-1-01 key-GO-2: view→edit
   @Patch()
   @HttpCode(HttpStatus.OK)
   async updateUser(
@@ -78,7 +79,29 @@ export class OpUserController {
     return ApiResBody.of(user);
   }
 
-  @PermissionRequired('system:user:view') // DEFECT-R7B-A22-1-01
+  /** key-GO-2: 独立停用/启用端点，REQ=system:user:disable */
+  @PermissionRequired('system:user:disable')
+  @Patch('status')
+  @HttpCode(HttpStatus.OK)
+  async updateUserStatus(
+    @Query('id') id: string,
+    @Body('status') status: ObjectActiveStatus,
+  ): Promise<ApiResBody<OpUser>> {
+    if (!id) {
+      throw new BizError('id is required').httpStatusAs(HttpStatus.BAD_REQUEST);
+    }
+    if (!['active', 'disabled'].includes(status)) {
+      throw new BizError('status 只能为 active 或 disabled').httpStatusAs(HttpStatus.BAD_REQUEST);
+    }
+    const operatorId = this.getCurrentIdentityId();
+    const user = await this.opUserSharedService.updateOpUser(id, {
+      status,
+      operatorId,
+    });
+    return ApiResBody.of(user);
+  }
+
+  @PermissionRequired('system:user:disable') // DEFECT-R7B-A22-1-01 key-GO-2: view→disable
   @Delete()
   @HttpCode(HttpStatus.OK)
   async deleteUser(@Query('id') id: string): Promise<ApiResBody<null>> {
@@ -110,7 +133,7 @@ export class OpUserController {
     return ApiResBody.of(user);
   }
 
-  @PermissionRequired('system:user:view') // DEFECT-R7B-A22-1-01
+  @PermissionRequired('system:user:assign-role') // DEFECT-R7B-A22-1-01 key-GO-2: view→assign-role
   @Post('roles')
   @HttpCode(HttpStatus.OK)
   async setUserRoles(

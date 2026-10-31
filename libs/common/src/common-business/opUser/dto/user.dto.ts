@@ -67,13 +67,18 @@ export class UpdateUserDTO implements IUpdateOpUserParams {
   @IsOptional()
   @IsBoolean()
   isSuper?: boolean;
+}
 
-  @IsOptional()
+export class UpdateUserStatusDTO {
   @IsEnum(ObjectActiveStatus)
-  status?: ObjectActiveStatus;
+  status: ObjectActiveStatus;
 }
 
 export class UserQueryDTO implements IOpUserQueryParams {
+  @IsOptional()
+  @IsString()
+  keyword?: string;
+
   @IsOptional()
   @IsString()
   name?: string;
