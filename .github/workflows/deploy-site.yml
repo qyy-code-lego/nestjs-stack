@@ -2,7 +2,7 @@ name: Deploy Docs Site
 
 on:
   push:
-    branches: [main, claude/feat/doc-site]
+    branches: [main, claude/feat/doc-site, claude/feat/merge-starter]
     paths:
       - 'site/**'
       - 'skills/**'
