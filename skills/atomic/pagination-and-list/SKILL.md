@@ -3,6 +3,7 @@ name: pagination-and-list
 description: 分页用 PaginationDTO+IPageData，Service 方法名含 Page；列表用 ListLimitDto+IListData；简单下拉用 simple-list 返回 id+name；分页与列表严格区分接口。
 type: atomic
 tags: [pagination, list]
+strict: true
 when_to_use: 关键词 — pagination, list, simple-list, IPageData, IListData, PaginationDTO, ListLimitDto
 ---
 

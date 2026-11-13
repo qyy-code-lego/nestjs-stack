@@ -1,0 +1,15 @@
+# sync 脚本生成产物，构建时再生，不提交
+public/raw/
+public/llms.txt
+public/agent/index.json
+skills/atomic/
+skills/composite/
+skills/index.md
+guide/install-skills.md
+
+# VitePress 构建缓存
+.vitepress/dist/
+.vitepress/cache/
+
+# 依赖
+node_modules/

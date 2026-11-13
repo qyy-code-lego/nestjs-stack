@@ -59,6 +59,7 @@ Composite 通过正文中的「相关 skill」段落引用 atomic，AI agent 可
 | `write-feat-design` | 功能设计文档（docs/feat-design/） |
 | `write-ddl` | PostgreSQL 建表 DDL：一表一文件 / ID 一律 BIGINT / 每表每列 COMMENT ON / 格式化 / 禁止外键 / 同步开发库并比对 |
 | `organize-nestjs-module` | NestJS 模块目录规范 |
+| `use-doc-site` | 文档站总入口：Agent 遇本栈规范问题时按三步检索法（llms.txt → agent/index.json → raw_url）定位，禁止凭训练记忆编造 |
 
 ## 3. 安装到消费工程
 

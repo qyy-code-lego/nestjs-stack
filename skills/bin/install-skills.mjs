@@ -2,13 +2,13 @@
 // 把 skills/{atomic,composite} 下的 skill 目录安装到消费工程的 AI 工具目录。
 // 用法：node packages/qyy-code-lego-nestjs/skills/bin/install-skills.mjs --target=claude-code|copilot|gemini|codex|trae|all [--out=path] [--dry-run] [--force] [--list]
 
-import { copyFile, mkdir, readFile, readdir } from 'node:fs/promises';
+import { copyFile, mkdir, readdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { discoverSkills } from './skill-lib.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const SKILLS_ROOT = resolve(__dirname, '..');
 const CWD = process.cwd();
 
 const VALID_TARGETS = ['claude-code', 'copilot', 'gemini', 'codex', 'trae'];
@@ -53,56 +53,8 @@ const HELP = `\nInstall skills CLI
   安装时会复制整个 skill 目录，包括 SKILL.md 以及 scripts/、references/、assets/ 等资源。
 `;
 
-// ---------- frontmatter parser (轻量, 仅取 key: value) ----------
-function parseFrontmatter(raw) {
-  if (!raw.startsWith('---')) return { meta: {}, body: raw };
-  const end = raw.indexOf('\n---', 3);
-  if (end === -1) return { meta: {}, body: raw };
-  const fmText = raw.slice(3, end).trim();
-  const body = raw.slice(end + 4).replace(/^\n/, '');
-  const meta = {};
-  for (const line of fmText.split('\n')) {
-    const m = line.match(/^([\w-]+)\s*:\s*(.+)$/);
-    if (!m) continue;
-    let val = m[2].trim();
-    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-      val = val.slice(1, -1);
-    } else if (val.startsWith('[') && val.endsWith(']')) {
-      val = val.slice(1, -1).split(',').map(s => s.trim()).filter(Boolean);
-    } else if (val === 'true' || val === 'false') {
-      val = val === 'true';
-    }
-    meta[m[1]] = val;
-  }
-  return { meta, body };
-}
-
-// ---------- skill discovery ----------
-async function discoverSkills() {
-  const groups = ['atomic', 'composite'];
-  const skills = [];
-  for (const group of groups) {
-    const groupDir = join(SKILLS_ROOT, group);
-    if (!existsSync(groupDir)) continue;
-    const entries = await readdir(groupDir);
-    for (const entry of entries) {
-      const skillFile = join(groupDir, entry, 'SKILL.md');
-      if (!existsSync(skillFile)) continue;
-      const raw = await readFile(skillFile, 'utf8');
-      const { meta, body } = parseFrontmatter(raw);
-      skills.push({
-        group, dir: entry, name: meta.name || entry,
-        description: meta.description || '',
-        type: meta.type || group,
-        tags: Array.isArray(meta.tags) ? meta.tags : [],
-        strict: !!meta.strict,
-        sourceDir: join(groupDir, entry),
-        path: skillFile, raw, body, meta,
-      });
-    }
-  }
-  return skills;
-}
+// ---------- frontmatter 解析与 skill 发现 ----------
+// 复用 ./skill-lib.mjs 的 parseFrontmatter / discoverSkills，禁止在此重造。
 
 // ---------- writers ----------
 async function copyFileSafe(sourcePath, destPath, { dryRun, force }) {
