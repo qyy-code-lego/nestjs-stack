@@ -187,7 +187,7 @@ async function writeSkillsIndex(skills) {
 
 > 本页由 \`site/scripts/sync.mjs\` 自动生成，请勿手工编辑。
 > 共 ${skills.length} 个 skill（atomic ${byGroup.atomic.length} · composite ${byGroup.composite.length}），其中 ${skills.filter((s) => s.strict).length} 个为 ⚠️ Strict 强约束。
-> 每个 skill 的 Agent 纯净原文位于 \`raw/skills/<group>/<name>.md\`，可用 [\`llms.txt\`](../llms.txt) 与 [\`agent/index.json\`](./index.json) 检索。
+> 每个 skill 的 Agent 纯净原文位于 \`raw/skills/<group>/<name>.md\`，可用 <a href="../llms.txt" target="_blank" rel="noopener">llms.txt</a> 与 <a href="../agent/index.json" target="_blank" rel="noopener">agent/index.json</a> 检索。
 
 ${renderGroup('atomic', 'Atomic（元 skill）')}
 
