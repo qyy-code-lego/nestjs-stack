@@ -6,8 +6,10 @@
 
 ```bash
 pnpm install
-cp env/playground.env.example env/playground.env   # 初始化环境变量
-pnpm dev:playground                                 # 启动 playground（调试端口 9232）
+cp env/playground.env.example env/playground.env   # 演示应用
+cp env/qyy-code-lego-app.env.example env/qyy-code-lego-app.env  # 业务应用（按需）
+pnpm dev:play                                       # 启动 playground（watch + debug 9232）
+pnpm dev:app                                        # 启动业务应用（watch + debug 9233）
 ```
 
 启动后访问健康检查端点确认存活：`GET /health`（liveness）、`GET /health/ready`（readiness，含 DB/Redis 检查）。

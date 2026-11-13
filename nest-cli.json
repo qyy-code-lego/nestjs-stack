@@ -64,6 +64,15 @@
         "tsConfigPath": "apps/playground/tsconfig.app.json"
       }
     },
+    "qyy-code-lego-app": {
+      "type": "application",
+      "root": "apps/qyy-code-lego-app",
+      "entryFile": "main",
+      "sourceRoot": "apps/qyy-code-lego-app/src",
+      "compilerOptions": {
+        "tsConfigPath": "apps/qyy-code-lego-app/tsconfig.app.json"
+      }
+    },
     "ykl": {
       "type": "application",
       "root": "apps/ykl",

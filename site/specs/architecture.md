@@ -12,7 +12,7 @@ group: 架构与请求
 ## 目录划分
 
 ```text
-apps/   # 应用入口（playground 已落地；khy/ykl/yypt 仅在 nest-cli.json 声明）
+apps/   # 应用入口（playground 演示 + qyy-code-lego-app 业务；khy/ykl/yypt 仅在 nest-cli.json 声明）
 libs/
   core/      # 跨项目通用技术组件：Filter/Pipe/Interceptor、ALS、Cache、Redis、JwtAuth、Session、MQ、BullMQ
   common/    # 配置体系 + 共享业务模块（opUser/Role/Permission/Dept/User/file/runtime-config）+ Guard/Service/DTO

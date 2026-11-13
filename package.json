@@ -22,10 +22,12 @@
     "typeorm": "^0.3.0"
   },
   "scripts": {
-    "build": "npm run build:web && npm run build:play",
+    "build": "npm run build:web && npm run build:play && npm run build:app",
     "build:web": "tsc -p libs/web/tsconfig.lib.json",
     "build:play": "nest build playground --webpack",
+    "build:app": "nest build qyy-code-lego-app --webpack",
     "dev:play": "nest start playground --watch --debug 9232",
+    "dev:app": "nest start qyy-code-lego-app --watch --debug 9233",
     "format": "prettier --write \"apps/**/*.ts\" \"libs/**/*.ts\"",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",

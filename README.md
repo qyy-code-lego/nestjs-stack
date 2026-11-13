@@ -10,20 +10,24 @@
 
 在开始开发前，请务必阅读以下核心文档：
 
+- **[统一文档站](site/)**: VitePress 文档站，面向人类与 AI Agent 双阅读模式（含 18 个规范页、Skill 库总览、Agent 三步检索端点）。本地预览：`cd site && pnpm dev`。
 - [**项目架构介绍 (Introduction)**](docs/development/intro.md): 了解 Monorepo 结构、apps/libs 划分、请求生命周期及全局基础设施。
 - [**开发规范指南 (Guideline)**](docs/development/guide-line.md): 掌握 Context (ALS)、身份拦截、DTO 规范、Service 范式及数据库操作等最佳实践。
+- [**Skill 库](skills/)**: 38 个 atomic/composite skill，可一键安装到消费工程的 AI 工具（`node skills/bin/install-skills.mjs --target=claude-code`）。
 
 ## 🏗️ 工程结构
 
-本工程采用 **Monorepo** 架构：
+本工程采用 **Monorepo** 架构（单一仓库，无子模块）：
 
 - **`apps/`**: 应用入口目录
-  - `playground`: 示例应用
+  - `playground`: 演示应用（含 MQ / BullMQ 示例）
+  - `qyy-code-lego-app`: 业务应用（从 nestjs-starter 合并迁入）
 
 - **`libs/`**: 共享库与基础设施
   - `core`: 跨项目通用技术组件（缓存、认证、MQ 等）
   - `common`: 通用业务逻辑（Guard、共享服务等）
   - `entities`: 数据库实体与 DDL 定义
+  - `web`: OSS Web 端上传 SDK
 
 ## 🚀 快速开始
 
@@ -40,6 +44,8 @@ pnpm install
 
 ```bash
 cp env/playground.env.example env/playground.env
+# 业务应用
+cp env/qyy-code-lego-app.env.example env/qyy-code-lego-app.env
 ```
 
 ### 3. 本地开发
@@ -47,11 +53,11 @@ cp env/playground.env.example env/playground.env
 启动应用：
 
 ```bash
-# 启动 playground 应用
-pnpm dev:playground
+# 启动 playground 演示应用
+pnpm dev:play
 
-# 或使用 nest cli 直接启动
-nest start playground --watch --debug
+# 启动业务应用
+pnpm dev:app
 ```
 
 ### 4. 常用命令
